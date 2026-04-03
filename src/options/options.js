@@ -69,10 +69,29 @@ function updateSiteEmptyState() {
   siteEmptyState.hidden = siteList.children.length > 0;
 }
 
+function formatRuleCount(count) {
+  return `${count} ${count === 1 ? "regla" : "reglas"}`;
+}
+
+function setSiteExpanded(siteCard, expanded) {
+  const toggleButton = siteCard.querySelector('[data-action="toggle-site"]');
+  const sitePanel = siteCard.querySelector('[data-role="site-panel"]');
+  siteCard.dataset.expanded = expanded ? "true" : "false";
+  toggleButton.textContent = expanded ? "Ocultar reglas" : "Ver reglas";
+  toggleButton.setAttribute("aria-expanded", expanded ? "true" : "false");
+  sitePanel.hidden = !expanded;
+}
+
+function updateRuleCount(siteCard) {
+  const ruleCount = siteCard.querySelectorAll(".rule-card").length;
+  siteCard.querySelector('[data-role="rule-count"]').textContent = formatRuleCount(ruleCount);
+}
+
 function updateRuleEmptyState(siteCard) {
   const ruleList = siteCard.querySelector('[data-role="rule-list"]');
   const emptyState = siteCard.querySelector('[data-role="rule-empty"]');
   emptyState.hidden = ruleList.children.length > 0;
+  updateRuleCount(siteCard);
 }
 
 function attachRuleRemoval(ruleElement, siteCard) {
@@ -107,15 +126,20 @@ function createWeeklyRule(siteCard, rule = createDefaultWeeklyRule()) {
   updateRuleEmptyState(siteCard);
 }
 
-function createSiteCard(siteEntry = { domain: "", rules: [] }) {
+function createSiteCard(siteEntry = { domain: "", rules: [] }, options = {}) {
   const fragment = siteCardTemplate.content.cloneNode(true);
   const siteCard = fragment.querySelector(".site-card");
+  const expanded = options.expanded ?? !(siteEntry.rules || []).length;
 
   siteCard.querySelector('[data-field="domain"]').value = siteEntry.domain || "";
 
   siteCard.querySelector('[data-action="remove-site"]').addEventListener("click", () => {
     siteCard.remove();
     updateSiteEmptyState();
+  });
+
+  siteCard.querySelector('[data-action="toggle-site"]').addEventListener("click", () => {
+    setSiteExpanded(siteCard, siteCard.dataset.expanded !== "true");
   });
 
   siteCard.querySelector('[data-action="add-datetime-rule"]').addEventListener("click", () => {
@@ -135,6 +159,7 @@ function createSiteCard(siteEntry = { domain: "", rules: [] }) {
   }
 
   updateRuleEmptyState(siteCard);
+  setSiteExpanded(siteCard, expanded);
   siteList.appendChild(siteCard);
   updateSiteEmptyState();
 }

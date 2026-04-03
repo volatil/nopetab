@@ -53,22 +53,32 @@
     </main>
 
     <template id="siteCardTemplate">
-      <article class="card stack site-card">
-        <div class="inline-row spread-row">
-          <label class="domain-field">
-            Dominio
-            <input data-field="domain" type="text" placeholder="youtube.com" />
-          </label>
-          <button data-action="remove-site" type="button" class="ghost">Eliminar sitio</button>
+      <article class="card site-card" data-expanded="false">
+        <div class="site-summary">
+          <div class="site-summary-main">
+            <button data-action="toggle-site" type="button" class="secondary site-toggle" aria-expanded="false">
+              Ver reglas
+            </button>
+            <label class="domain-field domain-field-compact">
+              <span class="field-label">Dominio</span>
+              <input data-field="domain" type="text" placeholder="youtube.com" />
+            </label>
+          </div>
+          <div class="site-summary-actions">
+            <span data-role="rule-count" class="badge">0 reglas</span>
+            <button data-action="remove-site" type="button" class="ghost">Eliminar sitio</button>
+          </div>
         </div>
 
-        <div class="inline-row">
-          <button data-action="add-datetime-rule" type="button" class="secondary">Agregar por fecha</button>
-          <button data-action="add-weekly-rule" type="button" class="secondary">Agregar horario semanal</button>
-        </div>
+        <div data-role="site-panel" class="site-panel stack" hidden>
+          <div class="inline-row compact-actions">
+            <button data-action="add-datetime-rule" type="button" class="secondary">Agregar por fecha</button>
+            <button data-action="add-weekly-rule" type="button" class="secondary">Agregar horario semanal</button>
+          </div>
 
-        <div data-role="rule-list" class="stack"></div>
-        <div data-role="rule-empty" class="empty-state">Este sitio aun no tiene reglas.</div>
+          <div data-role="rule-list" class="stack rule-list"></div>
+          <div data-role="rule-empty" class="empty-state">Este sitio aun no tiene reglas.</div>
+        </div>
       </article>
     </template>
 
