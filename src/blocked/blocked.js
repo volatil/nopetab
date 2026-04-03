@@ -1,6 +1,7 @@
 const storageApi = globalThis.NopeTabStorage || {};
 
 const reasonText = document.getElementById("reasonText");
+const detailText = document.getElementById("detailText");
 const messageText = document.getElementById("messageText");
 const targetText = document.getElementById("targetText");
 const emergencyButton = document.getElementById("emergencyButton");
@@ -28,41 +29,52 @@ function parseTargetUrl() {
   return currentUrl.searchParams.get("target");
 }
 
-function formatWindow(windowEntry) {
-  if (!windowEntry) {
-    return "No hay intervalo activo.";
+function formatOccurrence(occurrence) {
+  if (!occurrence) {
+    return "No hay regla activa.";
   }
 
-  const start = parseDateTimeValue(windowEntry.startAt);
-  const end = parseDateTimeValue(windowEntry.endAt);
+  const start = parseDateTimeValue(occurrence.occurrenceStart);
+  const end = parseDateTimeValue(occurrence.occurrenceEnd);
   if (!start || !end) {
-    return "Intervalo invalido.";
+    return "Regla invalida.";
   }
 
-  return `${start.toLocaleString()} - ${end.toLocaleString()}`;
+  if (occurrence.rule.type === "weekly-hours") {
+    const daySummary =
+      typeof storageApi.formatRuleDays === "function"
+        ? storageApi.formatRuleDays(occurrence.rule.daysOfWeek)
+        : "dias configurados";
+    return `Horario semanal (${daySummary}) desde ${start.toLocaleString()} hasta ${end.toLocaleString()}.`;
+  }
+
+  return `Intervalo puntual desde ${start.toLocaleString()} hasta ${end.toLocaleString()}.`;
 }
 
 async function loadBlockedState() {
-  const response = await sendMessage("get-state");
   const targetUrl = parseTargetUrl();
+  const response = await sendMessage("get-state", { targetUrl });
   const targetHost = targetUrl ? new URL(targetUrl).hostname : "el sitio que intentaste abrir";
+  const activeRule = response.blockState.activeRule;
+  const currentDomain = response.blockState.siteEntry ? response.blockState.siteEntry.domain : targetHost;
 
-  reasonText.textContent = response.blockState.activeWindow
-    ? `Este sitio esta bloqueado durante el intervalo ${formatWindow(response.blockState.activeWindow)}.`
-    : "Este sitio forma parte de tu lista de distracciones.";
+  reasonText.textContent = `El acceso a ${currentDomain} esta bloqueado en este momento.`;
+  detailText.textContent = activeRule
+    ? formatOccurrence(activeRule)
+    : "El sitio coincide con una regla configurada.";
   messageText.textContent = response.data.settings.blockMessage;
   targetText.textContent = `Intentaste abrir ${targetHost}.`;
   emergencyButton.textContent = response.data.settings.emergencyLabel;
 
-  if (!response.blockState.activeWindow || response.blockState.emergencyUnlocked) {
+  if (!activeRule || response.blockState.emergencyUnlocked) {
     emergencyButton.disabled = true;
-    emergencyButton.title = "El desbloqueo de emergencia solo aplica al intervalo activo actual.";
+    emergencyButton.title = "El desbloqueo de emergencia solo aplica a la regla activa actual de este sitio.";
   }
 }
 
 emergencyButton.addEventListener("click", async () => {
   const targetUrl = parseTargetUrl();
-  const response = await sendMessage("emergency-unlock");
+  const response = await sendMessage("emergency-unlock", { targetUrl });
   if (response && response.ok && targetUrl) {
     await sendMessage("open-target-tab", { targetUrl });
   }

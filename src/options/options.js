@@ -1,12 +1,13 @@
 const storageApi = globalThis.NopeTabStorage || {};
 
-const blockedSitesInput = document.getElementById("blockedSitesInput");
 const blockMessageInput = document.getElementById("blockMessageInput");
 const emergencyLabelInput = document.getElementById("emergencyLabelInput");
-const scheduleList = document.getElementById("scheduleList");
-const scheduleEmptyState = document.getElementById("scheduleEmptyState");
-const scheduleRowTemplate = document.getElementById("scheduleRowTemplate");
-const addRuleButton = document.getElementById("addRuleButton");
+const siteList = document.getElementById("siteList");
+const siteEmptyState = document.getElementById("siteEmptyState");
+const siteCardTemplate = document.getElementById("siteCardTemplate");
+const datetimeRuleTemplate = document.getElementById("datetimeRuleTemplate");
+const weeklyRuleTemplate = document.getElementById("weeklyRuleTemplate");
+const addSiteButton = document.getElementById("addSiteButton");
 const saveButton = document.getElementById("saveButton");
 const reloadButton = document.getElementById("reloadButton");
 const saveStatus = document.getElementById("saveStatus");
@@ -15,75 +16,12 @@ function sendMessage(type, payload = {}) {
   return chrome.runtime.sendMessage({ type, payload });
 }
 
-function sanitizeBlockedSites(values) {
-  if (typeof storageApi.sanitizeBlockedSites === "function") {
-    return storageApi.sanitizeBlockedSites(values);
+function sanitizeSiteRules(entries) {
+  if (typeof storageApi.sanitizeSiteRules === "function") {
+    return storageApi.sanitizeSiteRules(entries);
   }
 
-  const unique = new Set();
-  const sites = [];
-
-  for (const value of values || []) {
-    if (!value) {
-      continue;
-    }
-
-    let hostname = String(value).trim().toLowerCase();
-    if (!hostname) {
-      continue;
-    }
-
-    if (/^https?:\/\//.test(hostname)) {
-      try {
-        hostname = new URL(hostname).hostname.toLowerCase();
-      } catch (error) {
-        continue;
-      }
-    } else {
-      hostname = hostname.split("/")[0];
-    }
-
-    hostname = hostname.replace(/^\*\./, "").replace(/^www\./, "").trim();
-    if (!hostname || !hostname.includes(".") || unique.has(hostname)) {
-      continue;
-    }
-
-    unique.add(hostname);
-    sites.push(hostname);
-  }
-
-  return sites.sort();
-}
-
-function sanitizeBlockWindows(windows) {
-  if (typeof storageApi.sanitizeBlockWindows === "function") {
-    return storageApi.sanitizeBlockWindows(windows);
-  }
-
-  const now = Date.now();
-  const normalized = [];
-
-  for (const entry of windows || []) {
-    const start = entry && entry.startAt ? new Date(entry.startAt) : null;
-    const end = entry && entry.endAt ? new Date(entry.endAt) : null;
-    if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      continue;
-    }
-
-    const startAtMs = start.getTime();
-    const endAtMs = end.getTime();
-    if (endAtMs <= startAtMs || endAtMs <= now) {
-      continue;
-    }
-
-    normalized.push({
-      id: `${startAtMs}-${endAtMs}`,
-      startAt: toDateTimeLocalString(start),
-      endAt: toDateTimeLocalString(end)
-    });
-  }
-
-  return normalized.sort((left, right) => left.startAt.localeCompare(right.startAt));
+  return entries || [];
 }
 
 function sanitizeSettings(settings) {
@@ -91,16 +29,7 @@ function sanitizeSettings(settings) {
     return storageApi.sanitizeSettings(settings);
   }
 
-  return {
-    blockMessage:
-      settings && typeof settings.blockMessage === "string" && settings.blockMessage.trim()
-        ? settings.blockMessage.trim()
-        : "¡NOPE!",
-    emergencyLabel:
-      settings && typeof settings.emergencyLabel === "string" && settings.emergencyLabel.trim()
-        ? settings.emergencyLabel.trim()
-        : "Necesito entrar igual"
-  };
+  return settings || {};
 }
 
 function toDateTimeLocalString(date) {
@@ -116,55 +45,137 @@ function toDateTimeLocalString(date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-function createDefaultWindow() {
+function createDefaultDatetimeRule() {
   const start = new Date();
   start.setMinutes(0, 0, 0);
   const end = new Date(start.getTime() + 60 * 60 * 1000);
   return {
+    type: "datetime-range",
     startAt: toDateTimeLocalString(start),
     endAt: toDateTimeLocalString(end)
   };
 }
 
-function createWindowRow(windowEntry = createDefaultWindow()) {
-  const fragment = scheduleRowTemplate.content.cloneNode(true);
-  const row = fragment.querySelector(".schedule-row");
+function createDefaultWeeklyRule() {
+  return {
+    type: "weekly-hours",
+    startTime: "09:00",
+    endTime: "18:00",
+    daysOfWeek: [1, 2, 3, 4, 5]
+  };
+}
 
-  row.querySelector('[data-field="startAt"]').value = windowEntry.startAt;
-  row.querySelector('[data-field="endAt"]').value = windowEntry.endAt;
+function updateSiteEmptyState() {
+  siteEmptyState.hidden = siteList.children.length > 0;
+}
 
-  row.querySelector('[data-action="remove"]').addEventListener("click", () => {
-    row.remove();
-    updateScheduleEmptyState();
+function updateRuleEmptyState(siteCard) {
+  const ruleList = siteCard.querySelector('[data-role="rule-list"]');
+  const emptyState = siteCard.querySelector('[data-role="rule-empty"]');
+  emptyState.hidden = ruleList.children.length > 0;
+}
+
+function attachRuleRemoval(ruleElement, siteCard) {
+  ruleElement.querySelector('[data-action="remove-rule"]').addEventListener("click", () => {
+    ruleElement.remove();
+    updateRuleEmptyState(siteCard);
+  });
+}
+
+function createDatetimeRule(siteCard, rule = createDefaultDatetimeRule()) {
+  const fragment = datetimeRuleTemplate.content.cloneNode(true);
+  const ruleElement = fragment.querySelector(".rule-card");
+  ruleElement.querySelector('[data-field="startAt"]').value = rule.startAt || "";
+  ruleElement.querySelector('[data-field="endAt"]').value = rule.endAt || "";
+  attachRuleRemoval(ruleElement, siteCard);
+  siteCard.querySelector('[data-role="rule-list"]').appendChild(ruleElement);
+  updateRuleEmptyState(siteCard);
+}
+
+function createWeeklyRule(siteCard, rule = createDefaultWeeklyRule()) {
+  const fragment = weeklyRuleTemplate.content.cloneNode(true);
+  const ruleElement = fragment.querySelector(".rule-card");
+  ruleElement.querySelector('[data-field="startTime"]').value = rule.startTime || "09:00";
+  ruleElement.querySelector('[data-field="endTime"]').value = rule.endTime || "18:00";
+
+  for (const input of ruleElement.querySelectorAll("[data-day]")) {
+    input.checked = (rule.daysOfWeek || []).includes(Number(input.dataset.day));
+  }
+
+  attachRuleRemoval(ruleElement, siteCard);
+  siteCard.querySelector('[data-role="rule-list"]').appendChild(ruleElement);
+  updateRuleEmptyState(siteCard);
+}
+
+function createSiteCard(siteEntry = { domain: "", rules: [] }) {
+  const fragment = siteCardTemplate.content.cloneNode(true);
+  const siteCard = fragment.querySelector(".site-card");
+
+  siteCard.querySelector('[data-field="domain"]').value = siteEntry.domain || "";
+
+  siteCard.querySelector('[data-action="remove-site"]').addEventListener("click", () => {
+    siteCard.remove();
+    updateSiteEmptyState();
   });
 
-  scheduleList.appendChild(row);
-  updateScheduleEmptyState();
+  siteCard.querySelector('[data-action="add-datetime-rule"]').addEventListener("click", () => {
+    createDatetimeRule(siteCard);
+  });
+
+  siteCard.querySelector('[data-action="add-weekly-rule"]').addEventListener("click", () => {
+    createWeeklyRule(siteCard);
+  });
+
+  for (const rule of siteEntry.rules || []) {
+    if (rule.type === "weekly-hours") {
+      createWeeklyRule(siteCard, rule);
+    } else {
+      createDatetimeRule(siteCard, rule);
+    }
+  }
+
+  updateRuleEmptyState(siteCard);
+  siteList.appendChild(siteCard);
+  updateSiteEmptyState();
 }
 
-function updateScheduleEmptyState() {
-  scheduleEmptyState.hidden = scheduleList.children.length > 0;
-}
+function readSiteRules() {
+  const siteEntries = Array.from(siteList.querySelectorAll(".site-card")).map((siteCard) => {
+    const domain = siteCard.querySelector('[data-field="domain"]').value;
+    const rules = Array.from(siteCard.querySelectorAll(".rule-card")).map((ruleElement) => {
+      if (ruleElement.dataset.ruleType === "weekly-hours") {
+        return {
+          type: "weekly-hours",
+          startTime: ruleElement.querySelector('[data-field="startTime"]').value,
+          endTime: ruleElement.querySelector('[data-field="endTime"]').value,
+          daysOfWeek: Array.from(ruleElement.querySelectorAll("[data-day]"))
+            .filter((input) => input.checked)
+            .map((input) => Number(input.dataset.day))
+        };
+      }
 
-function readBlockWindows() {
-  const windows = Array.from(scheduleList.querySelectorAll(".schedule-row")).map((row) => ({
-    startAt: row.querySelector('[data-field="startAt"]').value,
-    endAt: row.querySelector('[data-field="endAt"]').value
-  }));
+      return {
+        type: "datetime-range",
+        startAt: ruleElement.querySelector('[data-field="startAt"]').value,
+        endAt: ruleElement.querySelector('[data-field="endAt"]').value
+      };
+    });
 
-  return sanitizeBlockWindows(windows);
+    return { domain, rules };
+  });
+
+  return sanitizeSiteRules(siteEntries);
 }
 
 function renderOptions(data) {
-  blockedSitesInput.value = data.blockedSites.join("\n");
   blockMessageInput.value = data.settings.blockMessage;
   emergencyLabelInput.value = data.settings.emergencyLabel;
 
-  scheduleList.innerHTML = "";
-  for (const entry of data.blockWindows) {
-    createWindowRow(entry);
+  siteList.innerHTML = "";
+  for (const entry of data.siteRules) {
+    createSiteCard(entry);
   }
-  updateScheduleEmptyState();
+  updateSiteEmptyState();
 }
 
 async function loadOptions() {
@@ -173,23 +184,22 @@ async function loadOptions() {
   saveStatus.textContent = "Configuracion cargada.";
 }
 
-addRuleButton.addEventListener("click", () => createWindowRow());
+addSiteButton.addEventListener("click", () => createSiteCard());
 
 saveButton.addEventListener("click", async () => {
-  const blockedSites = sanitizeBlockedSites(blockedSitesInput.value.split(/\r?\n/));
+  const siteRules = readSiteRules();
   const settings = sanitizeSettings({
     blockMessage: blockMessageInput.value,
     emergencyLabel: emergencyLabelInput.value
   });
-  const blockWindows = readBlockWindows();
 
   await sendMessage("save-options", {
-    blockedSites,
-    blockWindows,
+    siteRules,
     settings
   });
 
   saveStatus.textContent = "Cambios guardados correctamente.";
+  await loadOptions();
 });
 
 reloadButton.addEventListener("click", loadOptions);

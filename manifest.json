@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "NopeTab",
   "version": "1.0.0",
-  "description": "Bloquea sitios distractores durante intervalos de fecha y hora definidos manualmente.",
+  "description": "Bloquea cada sitio con reglas independientes por fecha y hora o por horario semanal.",
   "permissions": ["storage", "tabs"],
   "host_permissions": ["<all_urls>"],
   "background": {

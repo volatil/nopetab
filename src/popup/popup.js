@@ -25,51 +25,86 @@ function parseDateTimeValue(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function formatWindow(windowEntry) {
-  if (!windowEntry) {
-    return "Sin intervalo activo.";
+function formatOccurrence(occurrence) {
+  if (!occurrence) {
+    return "No hay regla activa.";
   }
 
-  const start = parseDateTimeValue(windowEntry.startAt);
-  const end = parseDateTimeValue(windowEntry.endAt);
+  const start = parseDateTimeValue(occurrence.occurrenceStart);
+  const end = parseDateTimeValue(occurrence.occurrenceEnd);
   if (!start || !end) {
-    return "Intervalo invalido.";
+    return "Regla invalida.";
+  }
+
+  if (occurrence.rule.type === "weekly-hours") {
+    const daySummary =
+      typeof storageApi.formatRuleDays === "function"
+        ? storageApi.formatRuleDays(occurrence.rule.daysOfWeek)
+        : "dias configurados";
+    return `${daySummary}: ${start.toLocaleString()} - ${end.toLocaleString()}`;
   }
 
   return `${start.toLocaleString()} - ${end.toLocaleString()}`;
 }
 
+async function getActiveTabUrl() {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const activeUrl = tabs[0] && tabs[0].url ? tabs[0].url : null;
+  if (!activeUrl) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(activeUrl);
+    if (parsedUrl.pathname.endsWith(`/${storageApi.BLOCKED_PAGE_PATH}`)) {
+      return parsedUrl.searchParams.get("target");
+    }
+  } catch (error) {
+    return activeUrl;
+  }
+
+  return activeUrl;
+}
+
 function renderState(snapshot) {
   const { data, blockState } = snapshot;
+  const currentDomain = blockState.siteEntry ? blockState.siteEntry.domain : null;
 
   statusBadge.textContent = blockState.blocked ? "Bloqueando" : "Libre";
   statusBadge.className = `badge ${blockState.blocked ? "active" : ""}`.trim();
 
   if (blockState.blocked) {
     stateSummary.textContent = blockState.emergencyUnlocked
-      ? "El intervalo actual fue desbloqueado de emergencia."
-      : "Hay un bloqueo activo por fecha y hora.";
-  } else if (blockState.activeWindow && blockState.emergencyUnlocked) {
-    stateSummary.textContent = "Hay un intervalo activo, pero ya fue desbloqueado de emergencia.";
+      ? "La regla actual de este sitio fue liberada de emergencia."
+      : "El sitio actual coincide con una regla activa.";
+  } else if (blockState.activeRule && blockState.emergencyUnlocked) {
+    stateSummary.textContent = "La regla actual sigue corriendo, pero ya fue desbloqueada de emergencia.";
+  } else if (currentDomain) {
+    stateSummary.textContent = "Este sitio esta configurado, pero ahora no tiene una regla activa.";
   } else {
-    stateSummary.textContent = "No hay bloqueo activo en este momento.";
+    stateSummary.textContent = "El sitio actual no coincide con ninguna regla configurada.";
   }
 
-  windowSummary.textContent = blockState.activeWindow
-    ? `Intervalo activo: ${formatWindow(blockState.activeWindow)}`
-    : "No hay un intervalo activo ahora.";
+  windowSummary.textContent = blockState.activeRule
+    ? `Regla activa: ${formatOccurrence(blockState.activeRule)}`
+    : "No hay una regla activa para este sitio.";
 
-  nextWindowSummary.textContent = blockState.nextWindow
-    ? formatWindow(blockState.nextWindow)
-    : "No hay ningun intervalo futuro configurado.";
+  nextWindowSummary.textContent = blockState.nextRule
+    ? formatOccurrence(blockState.nextRule)
+    : currentDomain
+      ? "No hay ninguna regla futura para este sitio."
+      : "Abre un sitio configurado para ver su proxima regla.";
 
-  siteSummary.textContent = data.blockedSites.length
-    ? `Sitios en la lista: ${data.blockedSites.join(", ")}`
-    : "Anade sitios desde la configuracion.";
+  siteSummary.textContent = currentDomain
+    ? `Sitio actual: ${currentDomain}. Sitios configurados: ${data.siteRules.length}.`
+    : data.siteRules.length
+      ? `Sitios configurados: ${data.siteRules.map((entry) => entry.domain).join(", ")}`
+      : "Anade sitios desde la configuracion.";
 }
 
 async function refreshState() {
-  const response = await sendMessage("get-state");
+  const targetUrl = await getActiveTabUrl();
+  const response = await sendMessage("get-state", { targetUrl });
   renderState(response);
 }
 

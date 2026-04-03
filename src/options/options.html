@@ -12,23 +12,14 @@
       <section class="shell intro">
         <div class="stack">
           <span class="badge warning">Productividad protegida</span>
-          <h1>Configura tus intervalos de bloqueo</h1>
+          <h1>Configura bloqueos por sitio</h1>
           <p class="section-copy">
-            Elige que sitios bloquear y define exactamente desde que fecha y hora hasta cual fecha y hora quieres cerrar el acceso.
+            Cada dominio puede tener sus propias reglas: intervalos por fecha y hora o bloques recurrentes por dias y horario.
           </p>
         </div>
       </section>
 
       <section class="shell options-grid">
-        <article class="card stack">
-          <h2 class="section-title">Sitios bloqueados</h2>
-          <label>
-            Dominios
-            <textarea id="blockedSitesInput" rows="8" placeholder="youtube.com&#10;reddit.com&#10;x.com"></textarea>
-          </label>
-          <p class="field-hint">Pon un dominio por linea. Se bloquearan tambien sus subdominios.</p>
-        </article>
-
         <article class="card stack">
           <h2 class="section-title">Mensaje de bloqueo</h2>
           <label>
@@ -41,13 +32,14 @@
           </label>
         </article>
 
-        <article class="card stack interval-card">
+        <article class="card stack sites-card">
           <div class="inline-row">
-            <h2 class="section-title">Intervalos de fecha</h2>
-            <button id="addRuleButton" type="button" class="secondary">Agregar intervalo</button>
+            <h2 class="section-title">Sitios y reglas</h2>
+            <button id="addSiteButton" type="button" class="secondary">Agregar sitio</button>
           </div>
-          <div id="scheduleList" class="stack"></div>
-          <div class="empty-state" id="scheduleEmptyState">Todavia no hay intervalos configurados.</div>
+          <p class="field-hint">Cada sitio puede tener varias reglas distintas y se bloquearan tambien sus subdominios.</p>
+          <div id="siteList" class="stack"></div>
+          <div class="empty-state" id="siteEmptyState">Todavia no hay sitios configurados.</div>
         </article>
       </section>
 
@@ -60,18 +52,74 @@
       </section>
     </main>
 
-    <template id="scheduleRowTemplate">
-      <div class="schedule-row">
-        <label>
-          Inicio
-          <input data-field="startAt" type="datetime-local" />
-        </label>
-        <label>
-          Fin
-          <input data-field="endAt" type="datetime-local" />
-        </label>
-        <button data-action="remove" type="button" class="ghost">Eliminar</button>
-      </div>
+    <template id="siteCardTemplate">
+      <article class="card stack site-card">
+        <div class="inline-row spread-row">
+          <label class="domain-field">
+            Dominio
+            <input data-field="domain" type="text" placeholder="youtube.com" />
+          </label>
+          <button data-action="remove-site" type="button" class="ghost">Eliminar sitio</button>
+        </div>
+
+        <div class="inline-row">
+          <button data-action="add-datetime-rule" type="button" class="secondary">Agregar por fecha</button>
+          <button data-action="add-weekly-rule" type="button" class="secondary">Agregar horario semanal</button>
+        </div>
+
+        <div data-role="rule-list" class="stack"></div>
+        <div data-role="rule-empty" class="empty-state">Este sitio aun no tiene reglas.</div>
+      </article>
+    </template>
+
+    <template id="datetimeRuleTemplate">
+      <section class="rule-card stack" data-rule-type="datetime-range">
+        <div class="inline-row spread-row">
+          <span class="badge">Por fecha y hora</span>
+          <button data-action="remove-rule" type="button" class="ghost">Eliminar</button>
+        </div>
+        <div class="rule-grid">
+          <label>
+            Inicio
+            <input data-field="startAt" type="datetime-local" />
+          </label>
+          <label>
+            Fin
+            <input data-field="endAt" type="datetime-local" />
+          </label>
+        </div>
+      </section>
+    </template>
+
+    <template id="weeklyRuleTemplate">
+      <section class="rule-card stack" data-rule-type="weekly-hours">
+        <div class="inline-row spread-row">
+          <span class="badge warning">Horario semanal</span>
+          <button data-action="remove-rule" type="button" class="ghost">Eliminar</button>
+        </div>
+        <div class="rule-grid">
+          <label>
+            Desde
+            <input data-field="startTime" type="time" />
+          </label>
+          <label>
+            Hasta
+            <input data-field="endTime" type="time" />
+          </label>
+        </div>
+        <fieldset class="weekday-picker">
+          <legend>Dias</legend>
+          <div class="weekday-grid">
+            <label><input data-day="1" type="checkbox" />Lun</label>
+            <label><input data-day="2" type="checkbox" />Mar</label>
+            <label><input data-day="3" type="checkbox" />Mie</label>
+            <label><input data-day="4" type="checkbox" />Jue</label>
+            <label><input data-day="5" type="checkbox" />Vie</label>
+            <label><input data-day="6" type="checkbox" />Sab</label>
+            <label><input data-day="0" type="checkbox" />Dom</label>
+          </div>
+        </fieldset>
+      </section>
     </template>
 
     <script src="../lib/storage.js"></script>
