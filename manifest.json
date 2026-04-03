@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "NopeTab",
+  "version": "1.0.0",
+  "description": "Bloquea sitios distractores durante intervalos de fecha y hora definidos manualmente.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "action": {
+    "default_title": "NopeTab",
+    "default_popup": "src/popup/popup.html"
+  },
+  "options_page": "src/options/options.html",
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/blocked/blocked.html",
+        "src/blocked/blocked.css",
+        "src/common.css"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

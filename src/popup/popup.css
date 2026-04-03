@@ -1,0 +1,23 @@
+body {
+  min-width: 360px;
+  padding: 14px;
+}
+
+.popup-shell {
+  padding: 18px;
+  gap: 14px;
+}
+
+.hero {
+  gap: 10px;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.compact {
+  gap: 6px;
+}

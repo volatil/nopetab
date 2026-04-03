@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NopeTab</title>
+    <link rel="stylesheet" href="../common.css" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="shell popup-shell stack">
+      <section class="hero stack">
+        <span class="badge" id="statusBadge">Cargando</span>
+        <div class="stack compact">
+          <h1>NopeTab</h1>
+          <p class="section-copy">Bloquea distracciones solo dentro del intervalo de fecha que tu definas.</p>
+        </div>
+      </section>
+
+      <section class="card stack">
+        <h2 class="section-title">Estado actual</h2>
+        <p class="status-text" id="stateSummary"></p>
+        <p class="status-text" id="windowSummary"></p>
+        <p class="status-text" id="siteSummary"></p>
+      </section>
+
+      <section class="card stack">
+        <h2 class="section-title">Proximo intervalo</h2>
+        <p class="status-text" id="nextWindowSummary">No hay ningun intervalo futuro configurado.</p>
+      </section>
+
+      <section class="card stack">
+        <div class="inline-row">
+          <button id="openOptionsButton" class="ghost">Abrir configuracion</button>
+          <button id="refreshButton" class="secondary">Actualizar</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="../lib/storage.js"></script>
+    <script src="popup.js"></script>
+  </body>
+  </html>

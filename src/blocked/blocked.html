@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NopeTab - Sitio bloqueado</title>
+    <link rel="stylesheet" href="../common.css" />
+    <link rel="stylesheet" href="blocked.css" />
+  </head>
+  <body>
+    <main class="blocked-shell shell">
+      <section class="stack">
+        <span class="badge danger">Sitio bloqueado</span>
+        <h1>Vuelve a lo importante</h1>
+        <p class="section-copy" id="reasonText"></p>
+      </section>
+
+      <section class="message-panel">
+        <p id="messageText"></p>
+      </section>
+
+      <section class="card stack">
+        <p class="status-text" id="targetText"></p>
+        <div class="inline-row">
+          <button id="emergencyButton" class="danger">Necesito entrar igual</button>
+          <button id="closeButton" class="secondary">Cerrar pestana</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="../lib/storage.js"></script>
+    <script src="blocked.js"></script>
+  </body>
+  </html>

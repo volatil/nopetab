@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NopeTab - Configuracion</title>
+    <link rel="stylesheet" href="../common.css" />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="options-layout">
+      <section class="shell intro">
+        <div class="stack">
+          <span class="badge warning">Productividad protegida</span>
+          <h1>Configura tus intervalos de bloqueo</h1>
+          <p class="section-copy">
+            Elige que sitios bloquear y define exactamente desde que fecha y hora hasta cual fecha y hora quieres cerrar el acceso.
+          </p>
+        </div>
+      </section>
+
+      <section class="shell options-grid">
+        <article class="card stack">
+          <h2 class="section-title">Sitios bloqueados</h2>
+          <label>
+            Dominios
+            <textarea id="blockedSitesInput" rows="8" placeholder="youtube.com&#10;reddit.com&#10;x.com"></textarea>
+          </label>
+          <p class="field-hint">Pon un dominio por linea. Se bloquearan tambien sus subdominios.</p>
+        </article>
+
+        <article class="card stack">
+          <h2 class="section-title">Mensaje de bloqueo</h2>
+          <label>
+            Mensaje personalizado
+            <textarea id="blockMessageInput" rows="5"></textarea>
+          </label>
+          <label>
+            Texto del boton de emergencia
+            <input id="emergencyLabelInput" type="text" />
+          </label>
+        </article>
+
+        <article class="card stack interval-card">
+          <div class="inline-row">
+            <h2 class="section-title">Intervalos de fecha</h2>
+            <button id="addRuleButton" type="button" class="secondary">Agregar intervalo</button>
+          </div>
+          <div id="scheduleList" class="stack"></div>
+          <div class="empty-state" id="scheduleEmptyState">Todavia no hay intervalos configurados.</div>
+        </article>
+      </section>
+
+      <section class="shell footer-bar">
+        <div class="inline-row">
+          <button id="saveButton" type="button">Guardar cambios</button>
+          <button id="reloadButton" type="button" class="secondary">Recargar estado</button>
+        </div>
+        <p class="status-text" id="saveStatus">Sin cambios guardados todavia.</p>
+      </section>
+    </main>
+
+    <template id="scheduleRowTemplate">
+      <div class="schedule-row">
+        <label>
+          Inicio
+          <input data-field="startAt" type="datetime-local" />
+        </label>
+        <label>
+          Fin
+          <input data-field="endAt" type="datetime-local" />
+        </label>
+        <button data-action="remove" type="button" class="ghost">Eliminar</button>
+      </div>
+    </template>
+
+    <script src="../lib/storage.js"></script>
+    <script src="options.js"></script>
+  </body>
+  </html>
