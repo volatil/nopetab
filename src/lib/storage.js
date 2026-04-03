@@ -105,7 +105,7 @@ function sortWeekdays(daysOfWeek) {
   return [...daysOfWeek].sort((left, right) => left - right);
 }
 
-function sanitizeRule(rule, now = new Date()) {
+function sanitizeRule(rule, now = new Date(), fallbackSortOrder = 0) {
   if (!rule || typeof rule !== "object") {
     return null;
   }
@@ -126,6 +126,7 @@ function sanitizeRule(rule, now = new Date()) {
     return {
       id: typeof rule.id === "string" && rule.id ? rule.id : `${RULE_TYPE_DATETIME_RANGE}-${startAtMs}-${endAtMs}`,
       type: RULE_TYPE_DATETIME_RANGE,
+      sortOrder: Number.isFinite(Number(rule.sortOrder)) ? Number(rule.sortOrder) : fallbackSortOrder,
       startAt: toDateTimeLocalString(startDate),
       endAt: toDateTimeLocalString(endDate)
     };
@@ -157,6 +158,7 @@ function sanitizeRule(rule, now = new Date()) {
           ? rule.id
           : `${RULE_TYPE_WEEKLY_HOURS}-${daysOfWeek.join("-")}-${startTime.value}-${endTime.value}`,
       type: RULE_TYPE_WEEKLY_HOURS,
+      sortOrder: Number.isFinite(Number(rule.sortOrder)) ? Number(rule.sortOrder) : fallbackSortOrder,
       daysOfWeek,
       startTime: startTime.value,
       endTime: endTime.value
@@ -167,6 +169,12 @@ function sanitizeRule(rule, now = new Date()) {
 }
 
 function compareRules(left, right) {
+  const leftSortOrder = Number.isFinite(Number(left.sortOrder)) ? Number(left.sortOrder) : 0;
+  const rightSortOrder = Number.isFinite(Number(right.sortOrder)) ? Number(right.sortOrder) : 0;
+  if (leftSortOrder !== rightSortOrder) {
+    return leftSortOrder - rightSortOrder;
+  }
+
   const leftTypeOrder = left.type === RULE_TYPE_DATETIME_RANGE ? 0 : 1;
   const rightTypeOrder = right.type === RULE_TYPE_DATETIME_RANGE ? 0 : 1;
   if (leftTypeOrder !== rightTypeOrder) {
@@ -188,7 +196,22 @@ function compareRules(left, right) {
   return 0;
 }
 
-function sanitizeSiteEntry(entry, now = new Date()) {
+function withNormalizedRuleSortOrder(rules) {
+  return rules.map((rule, index) => ({
+    ...rule,
+    sortOrder: index
+  }));
+}
+
+function withNormalizedSiteSortOrder(siteRules) {
+  return siteRules.map((siteEntry, index) => ({
+    ...siteEntry,
+    sortOrder: index,
+    rules: withNormalizedRuleSortOrder(siteEntry.rules || [])
+  }));
+}
+
+function sanitizeSiteEntry(entry, now = new Date(), fallbackSortOrder = 0) {
   const domain = normalizeDomain(entry && entry.domain);
   if (!domain) {
     return null;
@@ -196,14 +219,16 @@ function sanitizeSiteEntry(entry, now = new Date()) {
 
   const rules = [];
   const uniqueRuleIds = new Set();
+  let ruleIndex = 0;
   for (const rawRule of entry.rules || []) {
-    const normalizedRule = sanitizeRule(rawRule, now);
+    const normalizedRule = sanitizeRule(rawRule, now, ruleIndex);
     if (!normalizedRule || uniqueRuleIds.has(normalizedRule.id)) {
       continue;
     }
 
     uniqueRuleIds.add(normalizedRule.id);
     rules.push(normalizedRule);
+    ruleIndex += 1;
   }
 
   if (!rules.length) {
@@ -212,7 +237,8 @@ function sanitizeSiteEntry(entry, now = new Date()) {
 
   return {
     domain,
-    rules: rules.sort(compareRules)
+    sortOrder: Number.isFinite(Number(entry.sortOrder)) ? Number(entry.sortOrder) : fallbackSortOrder,
+    rules: withNormalizedRuleSortOrder(rules.sort(compareRules))
   };
 }
 
@@ -240,17 +266,23 @@ function sanitizeSiteRules(entries, now = new Date()) {
   const uniqueDomains = new Set();
   const siteRules = [];
 
+  let siteIndex = 0;
   for (const entry of sourceEntries) {
-    const normalizedEntry = sanitizeSiteEntry(entry, now);
+    const normalizedEntry = sanitizeSiteEntry(entry, now, siteIndex);
     if (!normalizedEntry || uniqueDomains.has(normalizedEntry.domain)) {
       continue;
     }
 
     uniqueDomains.add(normalizedEntry.domain);
     siteRules.push(normalizedEntry);
+    siteIndex += 1;
   }
 
-  return siteRules.sort((left, right) => left.domain.localeCompare(right.domain));
+  return withNormalizedSiteSortOrder(siteRules.sort((left, right) => {
+    const leftSortOrder = Number.isFinite(Number(left.sortOrder)) ? Number(left.sortOrder) : 0;
+    const rightSortOrder = Number.isFinite(Number(right.sortOrder)) ? Number(right.sortOrder) : 0;
+    return leftSortOrder - rightSortOrder || left.domain.localeCompare(right.domain);
+  }));
 }
 
 function sanitizeEmergencyUnlock(unlock, siteRules) {
@@ -561,6 +593,65 @@ function getBlockState(data, hostname, now = new Date()) {
   };
 }
 
+function getSitePreview(siteEntry, emergencyUnlock, now = new Date()) {
+  const activeRule = getActiveRule(siteEntry, now);
+  const emergencyUnlocked = Boolean(
+    siteEntry &&
+      activeRule &&
+      emergencyUnlock &&
+      emergencyUnlock.activeSiteDomain === siteEntry.domain &&
+      emergencyUnlock.activeRuleId === activeRule.rule.id &&
+      emergencyUnlock.occurrenceStart === activeRule.occurrenceStart
+  );
+
+  return {
+    siteEntry: siteEntry || null,
+    activeRule,
+    nextRule: siteEntry ? getNextRule(siteEntry, now) : null,
+    blocked: Boolean(activeRule) && !emergencyUnlocked,
+    emergencyUnlocked
+  };
+}
+
+function formatDateTimeForDisplay(value) {
+  const date = value instanceof Date ? value : parseDateTimeValue(value);
+  if (!date) {
+    return "Fecha invalida";
+  }
+
+  return date.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function formatRuleSummary(rule) {
+  if (!rule) {
+    return "Regla invalida";
+  }
+
+  if (rule.type === RULE_TYPE_WEEKLY_HOURS) {
+    const days = formatRuleDays(rule.daysOfWeek);
+    return `${days}: ${rule.startTime} - ${rule.endTime}`;
+  }
+
+  return `${formatDateTimeForDisplay(rule.startAt)} - ${formatDateTimeForDisplay(rule.endAt)}`;
+}
+
+function formatOccurrenceSummary(occurrence) {
+  if (!occurrence) {
+    return "Sin reglas futuras";
+  }
+
+  if (occurrence.rule && occurrence.rule.type === RULE_TYPE_WEEKLY_HOURS) {
+    return `Proximo: ${formatRuleDays(occurrence.rule.daysOfWeek)} ${formatDateTimeForDisplay(occurrence.occurrenceStart)} - ${formatDateTimeForDisplay(occurrence.occurrenceEnd)}`;
+  }
+
+  return `Proximo: ${formatDateTimeForDisplay(occurrence.occurrenceStart)} - ${formatDateTimeForDisplay(occurrence.occurrenceEnd)}`;
+}
+
 function getBlockedPageUrl(targetUrl) {
   const url = new URL(chrome.runtime.getURL(BLOCKED_PAGE_PATH));
   url.searchParams.set("target", targetUrl);
@@ -580,6 +671,8 @@ globalThis.NopeTabStorage = {
   parseTimeValue,
   toDateTimeLocalString,
   formatRuleDays,
+  formatRuleSummary,
+  formatOccurrenceSummary,
   sanitizeRule,
   sanitizeSiteRules,
   sanitizeSettings,
@@ -593,5 +686,6 @@ globalThis.NopeTabStorage = {
   getActiveRule,
   getNextRule,
   getBlockState,
+  getSitePreview,
   getBlockedPageUrl
 };

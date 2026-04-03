@@ -38,6 +38,10 @@
             <button id="addSiteButton" type="button" class="secondary">Agregar sitio</button>
           </div>
           <p class="field-hint">Cada sitio puede tener varias reglas distintas y se bloquearan tambien sus subdominios.</p>
+          <label class="search-field">
+            Buscar dominio
+            <input id="siteSearchInput" type="search" placeholder="Filtra por ejemplo youtube.com" />
+          </label>
           <div id="siteList" class="stack"></div>
           <div class="empty-state" id="siteEmptyState">Todavia no hay sitios configurados.</div>
         </article>
@@ -56,6 +60,7 @@
       <article class="card site-card" data-expanded="false">
         <div class="site-summary">
           <div class="site-summary-main">
+            <button data-action="drag-site" type="button" class="ghost drag-handle" title="Arrastra para reordenar" draggable="true">Mover</button>
             <button data-action="toggle-site" type="button" class="secondary site-toggle" aria-expanded="false">
               Ver reglas
             </button>
@@ -65,10 +70,17 @@
             </label>
           </div>
           <div class="site-summary-actions">
+            <span data-role="site-status" class="badge">Sin reglas</span>
             <span data-role="rule-count" class="badge">0 reglas</span>
             <button data-action="remove-site" type="button" class="ghost">Eliminar sitio</button>
           </div>
         </div>
+
+        <div class="site-overview">
+          <p data-role="site-summary-text" class="site-summary-text">Sin configuracion todavia.</p>
+          <p data-role="site-next-text" class="site-next-text">Agrega reglas para ver la proxima ventana.</p>
+        </div>
+        <div data-role="site-errors" class="validation-list" hidden></div>
 
         <div data-role="site-panel" class="site-panel stack" hidden>
           <div class="inline-row compact-actions">
@@ -85,8 +97,15 @@
     <template id="datetimeRuleTemplate">
       <section class="rule-card stack" data-rule-type="datetime-range">
         <div class="inline-row spread-row">
-          <span class="badge">Por fecha y hora</span>
-          <button data-action="remove-rule" type="button" class="ghost">Eliminar</button>
+          <div class="inline-row rule-title-row">
+            <button data-action="drag-rule" type="button" class="ghost drag-handle" title="Arrastra para reordenar" draggable="true">Mover</button>
+            <span class="badge">Por fecha y hora</span>
+            <span data-role="rule-summary" class="rule-summary">Resumen pendiente</span>
+          </div>
+          <div class="inline-row compact-actions">
+            <button data-action="duplicate-rule" type="button" class="secondary">Duplicar</button>
+            <button data-action="remove-rule" type="button" class="ghost">Eliminar</button>
+          </div>
         </div>
         <div class="rule-grid">
           <label>
@@ -98,14 +117,22 @@
             <input data-field="endAt" type="datetime-local" />
           </label>
         </div>
+        <div data-role="rule-errors" class="validation-list" hidden></div>
       </section>
     </template>
 
     <template id="weeklyRuleTemplate">
       <section class="rule-card stack" data-rule-type="weekly-hours">
         <div class="inline-row spread-row">
-          <span class="badge warning">Horario semanal</span>
-          <button data-action="remove-rule" type="button" class="ghost">Eliminar</button>
+          <div class="inline-row rule-title-row">
+            <button data-action="drag-rule" type="button" class="ghost drag-handle" title="Arrastra para reordenar" draggable="true">Mover</button>
+            <span class="badge warning">Horario semanal</span>
+            <span data-role="rule-summary" class="rule-summary">Resumen pendiente</span>
+          </div>
+          <div class="inline-row compact-actions">
+            <button data-action="duplicate-rule" type="button" class="secondary">Duplicar</button>
+            <button data-action="remove-rule" type="button" class="ghost">Eliminar</button>
+          </div>
         </div>
         <div class="rule-grid">
           <label>
@@ -129,6 +156,7 @@
             <label><input data-day="0" type="checkbox" />Dom</label>
           </div>
         </fieldset>
+        <div data-role="rule-errors" class="validation-list" hidden></div>
       </section>
     </template>
 
