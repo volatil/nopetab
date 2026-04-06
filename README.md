@@ -1,5 +1,12 @@
 # NopeTab
 
+v1.1: 
+- Compacta la lista de sitios con acordeones por dominio
+- Búsqueda por dominio
+- Resumen por sitio con estado actual y próximo bloqueo
+- Duplicado de reglas
+- Reordenamiento de sitios y reglas con drag and drop
+
 Chrome extension to block distracting sites with independent rules per domain.
 
 Extension de Chrome para bloquear sitios distractores con reglas independientes por dominio.
