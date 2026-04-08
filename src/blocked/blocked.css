@@ -33,6 +33,38 @@ body {
   line-height: 1.35;
 }
 
+.countdown-panel {
+  display: grid;
+  gap: 6px;
+  padding: 20px 24px;
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at top right, rgba(215, 101, 66, 0.16), transparent 40%),
+    linear-gradient(135deg, rgba(255, 251, 246, 0.94), rgba(255, 240, 228, 0.98));
+  border: 1px solid rgba(159, 61, 35, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 18px 36px rgba(159, 61, 35, 0.08);
+}
+
+.countdown-label {
+  margin: 0;
+  color: var(--accent-dark);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.countdown-value {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(32px, 7vw, 52px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+}
+
 .text-action {
   width: fit-content;
   min-height: 40px;
@@ -84,4 +116,10 @@ body {
   background: rgba(31, 37, 32, 0.04);
   box-shadow: none;
   transform: none;
+}
+
+@media (max-width: 640px) {
+  .countdown-panel {
+    padding: 18px 20px;
+  }
 }
