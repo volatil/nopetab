@@ -68,7 +68,9 @@ async function getActiveTabUrl() {
 
 function renderState(snapshot) {
   const { data, blockState } = snapshot;
-  const currentDomain = blockState.siteEntry ? blockState.siteEntry.domain : null;
+  const currentDomain = blockState.matchedDomain || null;
+  const currentGroup = blockState.groupEntry || null;
+  const groupDomainSummary = currentGroup ? currentGroup.domains.join(", ") : null;
 
   statusBadge.textContent = blockState.blocked ? "Bloqueando" : "Libre";
   statusBadge.className = `badge ${blockState.blocked ? "active" : ""}`.trim();
@@ -80,26 +82,26 @@ function renderState(snapshot) {
   } else if (blockState.activeRule && blockState.emergencyUnlocked) {
     stateSummary.textContent = "La regla actual sigue corriendo, pero ya fue desbloqueada de emergencia.";
   } else if (currentDomain) {
-    stateSummary.textContent = "Este sitio esta configurado, pero ahora no tiene una regla activa.";
+    stateSummary.textContent = "La web actual pertenece a un grupo configurado, pero ahora no tiene una regla activa.";
   } else {
-    stateSummary.textContent = "El sitio actual no coincide con ninguna regla configurada.";
+    stateSummary.textContent = "La web actual no coincide con ningun grupo configurado.";
   }
 
   windowSummary.textContent = blockState.activeRule
     ? `Regla activa: ${formatOccurrence(blockState.activeRule)}`
-    : "No hay una regla activa para este sitio.";
+    : "No hay una regla activa para esta web.";
 
   nextWindowSummary.textContent = blockState.nextRule
     ? formatOccurrence(blockState.nextRule)
     : currentDomain
-      ? "No hay ninguna regla futura para este sitio."
-      : "Abre un sitio configurado para ver su proxima regla.";
+      ? "No hay ninguna regla futura para este grupo."
+      : "Abre una web configurada para ver su proxima regla.";
 
   siteSummary.textContent = currentDomain
-    ? `Sitio actual: ${currentDomain}. Sitios configurados: ${data.siteRules.length}.`
-    : data.siteRules.length
-      ? `Sitios configurados: ${data.siteRules.map((entry) => entry.domain).join(", ")}`
-      : "Anade sitios desde la configuracion.";
+    ? `Web actual: ${currentDomain}. Grupo: ${groupDomainSummary}. Grupos configurados: ${data.ruleGroups.length}.`
+    : data.ruleGroups.length
+      ? `Grupos configurados: ${data.ruleGroups.map((entry) => entry.domains.join(", ")).join(" | ")}`
+      : "Anade grupos desde la configuracion.";
 }
 
 async function refreshState() {

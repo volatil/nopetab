@@ -2,20 +2,21 @@ const storageApi = globalThis.NopeTabStorage || {};
 
 const blockMessageInput = document.getElementById("blockMessageInput");
 const emergencyLabelInput = document.getElementById("emergencyLabelInput");
-const siteSearchInput = document.getElementById("siteSearchInput");
-const siteList = document.getElementById("siteList");
-const siteEmptyState = document.getElementById("siteEmptyState");
-const siteCardTemplate = document.getElementById("siteCardTemplate");
+const groupSearchInput = document.getElementById("groupSearchInput");
+const groupList = document.getElementById("groupList");
+const groupEmptyState = document.getElementById("groupEmptyState");
+const groupCardTemplate = document.getElementById("groupCardTemplate");
+const domainRowTemplate = document.getElementById("domainRowTemplate");
 const datetimeRuleTemplate = document.getElementById("datetimeRuleTemplate");
 const weeklyRuleTemplate = document.getElementById("weeklyRuleTemplate");
-const addSiteButton = document.getElementById("addSiteButton");
+const addGroupButton = document.getElementById("addGroupButton");
 const saveButton = document.getElementById("saveButton");
 const reloadButton = document.getElementById("reloadButton");
 const saveStatus = document.getElementById("saveStatus");
 
 let currentData = null;
 let isDirty = false;
-let draggedSiteCard = null;
+let draggedGroupCard = null;
 let draggedRuleCard = null;
 let draggedRuleOwner = null;
 
@@ -23,9 +24,9 @@ function sendMessage(type, payload = {}) {
   return chrome.runtime.sendMessage({ type, payload });
 }
 
-function sanitizeSiteRules(entries) {
-  if (typeof storageApi.sanitizeSiteRules === "function") {
-    return storageApi.sanitizeSiteRules(entries);
+function sanitizeRuleGroups(entries) {
+  if (typeof storageApi.sanitizeRuleGroups === "function") {
+    return storageApi.sanitizeRuleGroups(entries);
   }
 
   return entries || [];
@@ -101,9 +102,17 @@ function formatOccurrenceSummary(occurrence) {
   return "Sin reglas futuras";
 }
 
-function getSitePreview(siteEntry) {
-  if (typeof storageApi.getSitePreview === "function") {
-    return storageApi.getSitePreview(siteEntry, (currentData && currentData.emergencyUnlock) || null);
+function formatDomainCount(count) {
+  if (typeof storageApi.formatDomainCount === "function") {
+    return storageApi.formatDomainCount(count);
+  }
+
+  return `${count} ${count === 1 ? "web" : "webs"}`;
+}
+
+function getGroupPreview(groupEntry, previewDomain) {
+  if (typeof storageApi.getGroupPreview === "function") {
+    return storageApi.getGroupPreview(groupEntry, (currentData && currentData.emergencyUnlock) || null, new Date(), previewDomain);
   }
 
   return {
@@ -136,7 +145,7 @@ function createDefaultWeeklyRule() {
 
 function markDirty(message = "Hay cambios sin guardar.") {
   isDirty = true;
-  updateAllSiteCards();
+  updateAllGroupCards();
   updateStatus(message);
 }
 
@@ -189,19 +198,19 @@ function setInputError(input, active) {
   input.classList.toggle("input-error", Boolean(active));
 }
 
-function updateSiteEmptyState() {
-  const visibleSiteCards = Array.from(siteList.children).filter((siteCard) => !siteCard.hidden);
-  const totalSiteCards = siteList.children.length;
+function updateGroupEmptyState() {
+  const visibleGroupCards = Array.from(groupList.children).filter((groupCard) => !groupCard.hidden);
+  const totalGroupCards = groupList.children.length;
 
-  if (!totalSiteCards) {
-    siteEmptyState.hidden = false;
-    siteEmptyState.textContent = "Todavia no hay sitios configurados.";
+  if (!totalGroupCards) {
+    groupEmptyState.hidden = false;
+    groupEmptyState.textContent = "Todavia no hay grupos configurados.";
     return;
   }
 
-  siteEmptyState.hidden = visibleSiteCards.length > 0;
-  if (!visibleSiteCards.length) {
-    siteEmptyState.textContent = "No hay sitios que coincidan con la busqueda.";
+  groupEmptyState.hidden = visibleGroupCards.length > 0;
+  if (!visibleGroupCards.length) {
+    groupEmptyState.textContent = "No hay grupos que coincidan con la busqueda.";
   }
 }
 
@@ -209,13 +218,13 @@ function formatRuleCount(count) {
   return `${count} ${count === 1 ? "regla" : "reglas"}`;
 }
 
-function setSiteExpanded(siteCard, expanded) {
-  const toggleButton = siteCard.querySelector('[data-action="toggle-site"]');
-  const sitePanel = siteCard.querySelector('[data-role="site-panel"]');
-  siteCard.dataset.expanded = expanded ? "true" : "false";
+function setGroupExpanded(groupCard, expanded) {
+  const toggleButton = groupCard.querySelector('[data-action="toggle-group"]');
+  const groupPanel = groupCard.querySelector('[data-role="group-panel"]');
+  groupCard.dataset.expanded = expanded ? "true" : "false";
   toggleButton.textContent = expanded ? "Ocultar reglas" : "Ver reglas";
   toggleButton.setAttribute("aria-expanded", expanded ? "true" : "false");
-  sitePanel.hidden = !expanded;
+  groupPanel.hidden = !expanded;
 }
 
 function readRuleElement(ruleElement) {
@@ -237,23 +246,35 @@ function readRuleElement(ruleElement) {
   };
 }
 
-function readSiteDraft(siteCard) {
+function readGroupDraft(groupCard) {
   return {
-    domain: siteCard.querySelector('[data-field="domain"]').value,
-    rules: Array.from(siteCard.querySelectorAll(".rule-card")).map(readRuleElement)
+    domains: Array.from(groupCard.querySelectorAll(".domain-row [data-field='domain']")).map((input) => input.value),
+    rules: Array.from(groupCard.querySelectorAll(".rule-card")).map(readRuleElement)
   };
 }
 
-function updateRuleCount(siteCard) {
-  const ruleCount = siteCard.querySelectorAll(".rule-card").length;
-  siteCard.querySelector('[data-role="rule-count"]').textContent = formatRuleCount(ruleCount);
+function updateRuleCount(groupCard) {
+  const ruleCount = groupCard.querySelectorAll(".rule-card").length;
+  groupCard.querySelector('[data-role="rule-count"]').textContent = formatRuleCount(ruleCount);
 }
 
-function updateRuleEmptyState(siteCard) {
-  const ruleList = siteCard.querySelector('[data-role="rule-list"]');
-  const emptyState = siteCard.querySelector('[data-role="rule-empty"]');
+function updateDomainCount(groupCard) {
+  const domainCount = groupCard.querySelectorAll(".domain-row").length;
+  groupCard.querySelector('[data-role="domain-count"]').textContent = formatDomainCount(domainCount);
+}
+
+function updateRuleEmptyState(groupCard) {
+  const ruleList = groupCard.querySelector('[data-role="rule-list"]');
+  const emptyState = groupCard.querySelector('[data-role="rule-empty"]');
   emptyState.hidden = ruleList.children.length > 0;
-  updateRuleCount(siteCard);
+  updateRuleCount(groupCard);
+}
+
+function updateDomainEmptyState(groupCard) {
+  const domainList = groupCard.querySelector('[data-role="domain-list"]');
+  const emptyState = groupCard.querySelector('[data-role="domain-empty"]');
+  emptyState.hidden = domainList.children.length > 0;
+  updateDomainCount(groupCard);
 }
 
 function getRuleValidation(ruleElement) {
@@ -339,74 +360,128 @@ function updateRuleCard(ruleElement) {
   return messages;
 }
 
-function updateSiteOverview(siteCard, validRuleCount) {
-  const statusBadge = siteCard.querySelector('[data-role="site-status"]');
-  const summaryText = siteCard.querySelector('[data-role="site-summary-text"]');
-  const nextText = siteCard.querySelector('[data-role="site-next-text"]');
-  const draft = readSiteDraft(siteCard);
-  const normalizedDomain = normalizeDomain(draft.domain);
-  const sanitizedEntries = sanitizeSiteRules([draft]);
-  const siteEntry = sanitizedEntries[0] || null;
+function getNormalizedDomains(groupCard) {
+  return Array.from(groupCard.querySelectorAll(".domain-row [data-field='domain']"))
+    .map((input) => normalizeDomain(input.value))
+    .filter(Boolean);
+}
 
-  if (!normalizedDomain) {
-    statusBadge.textContent = "Dominio invalido";
+function updateGroupOverview(groupCard, validRuleCount, validDomainCount) {
+  const statusBadge = groupCard.querySelector('[data-role="group-status"]');
+  const summaryText = groupCard.querySelector('[data-role="group-summary-text"]');
+  const nextText = groupCard.querySelector('[data-role="group-next-text"]');
+  const domainSummary = groupCard.querySelector('[data-role="group-domain-summary"]');
+  const normalizedDomains = getNormalizedDomains(groupCard);
+  const sanitizedGroups = sanitizeRuleGroups([readGroupDraft(groupCard)]);
+  const groupEntry = sanitizedGroups[0] || null;
+  const previewDomain = normalizedDomains[0] || null;
+
+  domainSummary.textContent = normalizedDomains.length
+    ? normalizedDomains.join(", ")
+    : "Sin webs todavia.";
+
+  if (!validDomainCount) {
+    statusBadge.textContent = "Webs invalidas";
     statusBadge.className = "badge danger";
-    summaryText.textContent = "Escribe un dominio valido para activar la vista previa.";
+    summaryText.textContent = "Agrega al menos una web valida para activar la vista previa.";
     nextText.textContent = "Todavia no se puede calcular el siguiente bloqueo.";
     return;
   }
 
-  if (!siteEntry || !validRuleCount) {
+  if (!groupEntry || !validRuleCount) {
     statusBadge.textContent = "Sin reglas validas";
     statusBadge.className = "badge warning";
-    summaryText.textContent = `El dominio ${normalizedDomain} aun no tiene reglas listas para usarse.`;
+    summaryText.textContent = `${formatDomainCount(validDomainCount)} en este grupo, pero aun no hay reglas listas para usarse.`;
     nextText.textContent = "Corrige las reglas para ver su estado y la siguiente ventana.";
     return;
   }
 
-  const preview = getSitePreview(siteEntry);
+  const preview = getGroupPreview(groupEntry, previewDomain);
   if (preview.blocked) {
     statusBadge.textContent = "Bloqueando ahora";
     statusBadge.className = "badge danger";
-    summaryText.textContent = `Bloqueado ahora: ${formatRuleSummary(preview.activeRule.rule)}.`;
+    summaryText.textContent = `Bloqueando ${formatDomainCount(groupEntry.domains.length)}: ${formatRuleSummary(preview.activeRule.rule)}.`;
   } else if (preview.activeRule && preview.emergencyUnlocked) {
     statusBadge.textContent = "Bypass activo";
     statusBadge.className = "badge warning";
-    summaryText.textContent = `La regla actual sigue corriendo, pero ${normalizedDomain} esta desbloqueado de emergencia.`;
+    summaryText.textContent = `La regla actual sigue corriendo, pero ${preview.activeDomain} esta desbloqueado de emergencia.`;
   } else if (preview.nextRule) {
     statusBadge.textContent = "Listo";
     statusBadge.className = "badge active";
-    summaryText.textContent = `${normalizedDomain} no esta bloqueado ahora.`;
+    summaryText.textContent = `${formatDomainCount(groupEntry.domains.length)} configuradas y sin bloqueo activo ahora.`;
   } else {
     statusBadge.textContent = "Sin proximas reglas";
     statusBadge.className = "badge";
-    summaryText.textContent = `${normalizedDomain} esta configurado, pero no tiene ventanas futuras.`;
+    summaryText.textContent = `${formatDomainCount(groupEntry.domains.length)} configuradas, pero sin ventanas futuras.`;
   }
 
   nextText.textContent = preview.nextRule
     ? formatOccurrenceSummary(preview.nextRule)
-    : "No hay ninguna regla futura para este sitio.";
+    : "No hay ninguna regla futura para este grupo.";
 }
 
-function validateSiteCard(siteCard) {
-  const siteErrors = [];
-  const domainInput = siteCard.querySelector('[data-field="domain"]');
-  const siteErrorsNode = siteCard.querySelector('[data-role="site-errors"]');
-  const draft = readSiteDraft(siteCard);
-  const normalizedDomain = normalizeDomain(draft.domain);
-  const ruleCards = Array.from(siteCard.querySelectorAll(".rule-card"));
+function validateGroupCard(groupCard, duplicateDomainCounts) {
+  const groupErrors = [];
+  const groupErrorsNode = groupCard.querySelector('[data-role="group-errors"]');
+  const domainInputs = Array.from(groupCard.querySelectorAll(".domain-row [data-field='domain']"));
+  const ruleCards = Array.from(groupCard.querySelectorAll(".rule-card"));
+  const normalizedDomains = [];
+  const localDomainCounts = new Map();
+  const normalizedDomainInputs = domainInputs.map((input) => ({
+    input,
+    normalizedDomain: normalizeDomain(input.value)
+  }));
+  let invalidDomainCount = 0;
+  let validDomainCount = 0;
   let invalidRuleCount = 0;
   let validRuleCount = 0;
 
-  setInputError(domainInput, false);
+  for (const item of normalizedDomainInputs) {
+    if (!item.normalizedDomain) {
+      continue;
+    }
 
-  if (!normalizedDomain) {
-    siteErrors.push("El dominio debe ser valido, por ejemplo youtube.com.");
-    setInputError(domainInput, true);
+    localDomainCounts.set(item.normalizedDomain, (localDomainCounts.get(item.normalizedDomain) || 0) + 1);
+  }
+
+  if (!domainInputs.length) {
+    groupErrors.push("Agrega al menos una web para este grupo.");
+  }
+
+  for (const { input, normalizedDomain } of normalizedDomainInputs) {
+    const domainMessages = [];
+
+    if (!normalizedDomain) {
+      domainMessages.push("La web debe ser valida, por ejemplo youtube.com.");
+      invalidDomainCount += 1;
+    } else {
+      normalizedDomains.push(normalizedDomain);
+
+      if ((localDomainCounts.get(normalizedDomain) || 0) > 1) {
+        domainMessages.push("Esta web esta repetida dentro del mismo grupo.");
+      }
+
+      if ((duplicateDomainCounts.get(normalizedDomain) || 0) > 1) {
+        domainMessages.push("Esta web ya aparece en otro grupo.");
+      }
+
+      if (!domainMessages.length) {
+        validDomainCount += 1;
+      } else {
+        invalidDomainCount += 1;
+      }
+    }
+
+    setInputError(input, domainMessages.length > 0);
+    input.title = domainMessages.join(" ");
+  }
+
+  if (normalizedDomains.length && !validDomainCount) {
+    groupErrors.push("El grupo no tiene ninguna web valida para guardar.");
   }
 
   if (!ruleCards.length) {
-    siteErrors.push("Agrega al menos una regla para este sitio.");
+    groupErrors.push("Agrega al menos una regla compartida para este grupo.");
   }
 
   for (const ruleCard of ruleCards) {
@@ -419,38 +494,55 @@ function validateSiteCard(siteCard) {
   }
 
   if (ruleCards.length && !validRuleCount) {
-    siteErrors.push("El sitio no tiene ninguna regla valida para guardar.");
+    groupErrors.push("El grupo no tiene ninguna regla valida para guardar.");
   }
 
-  setValidationMessages(siteErrorsNode, siteErrors);
-  updateRuleEmptyState(siteCard);
-  updateSiteOverview(siteCard, validRuleCount);
+  setValidationMessages(groupErrorsNode, groupErrors);
+  updateDomainEmptyState(groupCard);
+  updateRuleEmptyState(groupCard);
+  updateGroupOverview(groupCard, validRuleCount, validDomainCount);
 
   return {
-    invalid: siteErrors.length + invalidRuleCount > 0
+    invalid: groupErrors.length + invalidDomainCount + invalidRuleCount > 0
   };
 }
 
 function applySearchFilter() {
-  const query = siteSearchInput.value.trim().toLowerCase();
+  const query = groupSearchInput.value.trim().toLowerCase();
 
-  for (const siteCard of siteList.querySelectorAll(".site-card")) {
-    const domainValue = siteCard.querySelector('[data-field="domain"]').value.trim().toLowerCase();
-    const summaryValue = siteCard.querySelector('[data-role="site-summary-text"]').textContent.trim().toLowerCase();
-    const nextValue = siteCard.querySelector('[data-role="site-next-text"]').textContent.trim().toLowerCase();
-    const visible = !query || domainValue.includes(query) || summaryValue.includes(query) || nextValue.includes(query);
-    siteCard.hidden = !visible;
+  for (const groupCard of groupList.querySelectorAll(".group-card")) {
+    const domainValues = Array.from(groupCard.querySelectorAll(".domain-row [data-field='domain']"))
+      .map((input) => input.value.trim().toLowerCase())
+      .join(" ");
+    const summaryValue = groupCard.querySelector('[data-role="group-summary-text"]').textContent.trim().toLowerCase();
+    const nextValue = groupCard.querySelector('[data-role="group-next-text"]').textContent.trim().toLowerCase();
+    const visible = !query || domainValues.includes(query) || summaryValue.includes(query) || nextValue.includes(query);
+    groupCard.hidden = !visible;
   }
 
-  updateSiteEmptyState();
+  updateGroupEmptyState();
+}
+
+function getDuplicateDomainCounts() {
+  const counts = new Map();
+
+  for (const groupCard of groupList.querySelectorAll(".group-card")) {
+    const uniqueDomains = new Set(getNormalizedDomains(groupCard));
+    for (const domain of uniqueDomains) {
+      counts.set(domain, (counts.get(domain) || 0) + 1);
+    }
+  }
+
+  return counts;
 }
 
 function updateSaveAvailability() {
-  const siteCards = Array.from(siteList.querySelectorAll(".site-card"));
-  const hasInvalidSite = siteCards.some((siteCard) => validateSiteCard(siteCard).invalid);
-  saveButton.disabled = hasInvalidSite;
+  const groupCards = Array.from(groupList.querySelectorAll(".group-card"));
+  const duplicateDomainCounts = getDuplicateDomainCounts();
+  const hasInvalidGroup = groupCards.some((groupCard) => validateGroupCard(groupCard, duplicateDomainCounts).invalid);
+  saveButton.disabled = hasInvalidGroup;
 
-  if (hasInvalidSite) {
+  if (hasInvalidGroup) {
     updateStatus("Corrige los errores marcados antes de guardar.");
   } else if (isDirty) {
     updateStatus("Hay cambios sin guardar.");
@@ -459,21 +551,34 @@ function updateSaveAvailability() {
   applySearchFilter();
 }
 
-function updateAllSiteCards() {
+function updateAllGroupCards() {
   updateSaveAvailability();
 }
 
-function createDatetimeRule(siteCard, rule = createDefaultDatetimeRule()) {
+function createDomainRow(groupCard, domain = "", options = {}) {
+  const fragment = domainRowTemplate.content.cloneNode(true);
+  const row = fragment.querySelector(".domain-row");
+  row.querySelector('[data-field="domain"]').value = domain || "";
+  groupCard.querySelector('[data-role="domain-list"]').appendChild(row);
+  if (!options.skipRefresh) {
+    updateDomainEmptyState(groupCard);
+    updateAllGroupCards();
+  }
+}
+
+function createDatetimeRule(groupCard, rule = createDefaultDatetimeRule(), options = {}) {
   const fragment = datetimeRuleTemplate.content.cloneNode(true);
   const ruleElement = fragment.querySelector(".rule-card");
   ruleElement.querySelector('[data-field="startAt"]').value = rule.startAt || "";
   ruleElement.querySelector('[data-field="endAt"]').value = rule.endAt || "";
-  siteCard.querySelector('[data-role="rule-list"]').appendChild(ruleElement);
-  updateRuleEmptyState(siteCard);
-  updateAllSiteCards();
+  groupCard.querySelector('[data-role="rule-list"]').appendChild(ruleElement);
+  if (!options.skipRefresh) {
+    updateRuleEmptyState(groupCard);
+    updateAllGroupCards();
+  }
 }
 
-function createWeeklyRule(siteCard, rule = createDefaultWeeklyRule()) {
+function createWeeklyRule(groupCard, rule = createDefaultWeeklyRule(), options = {}) {
   const fragment = weeklyRuleTemplate.content.cloneNode(true);
   const ruleElement = fragment.querySelector(".rule-card");
   ruleElement.querySelector('[data-field="startTime"]').value = rule.startTime || "09:00";
@@ -483,61 +588,70 @@ function createWeeklyRule(siteCard, rule = createDefaultWeeklyRule()) {
     input.checked = (rule.daysOfWeek || []).includes(Number(input.dataset.day));
   }
 
-  siteCard.querySelector('[data-role="rule-list"]').appendChild(ruleElement);
-  updateRuleEmptyState(siteCard);
-  updateAllSiteCards();
+  groupCard.querySelector('[data-role="rule-list"]').appendChild(ruleElement);
+  if (!options.skipRefresh) {
+    updateRuleEmptyState(groupCard);
+    updateAllGroupCards();
+  }
 }
 
-function duplicateRule(siteCard, ruleElement) {
+function duplicateRule(groupCard, ruleElement) {
   const rule = readRuleElement(ruleElement);
   if (rule.type === "weekly-hours") {
-    createWeeklyRule(siteCard, rule);
+    createWeeklyRule(groupCard, rule);
   } else {
-    createDatetimeRule(siteCard, rule);
+    createDatetimeRule(groupCard, rule);
   }
 
   markDirty("Regla duplicada. Revisa el nuevo bloque y guarda cuando quieras.");
 }
 
-function createSiteCard(siteEntry = { domain: "", rules: [] }, options = {}) {
-  const fragment = siteCardTemplate.content.cloneNode(true);
-  const siteCard = fragment.querySelector(".site-card");
-  const expanded = options.expanded ?? !(siteEntry.rules || []).length;
+function createGroupCard(groupEntry = { domains: [], rules: [] }, options = {}) {
+  const fragment = groupCardTemplate.content.cloneNode(true);
+  const groupCard = fragment.querySelector(".group-card");
+  const expanded = options.expanded ?? !(groupEntry.rules || []).length;
+  const groupId = groupEntry.id || "";
 
-  siteCard.querySelector('[data-field="domain"]').value = siteEntry.domain || "";
+  groupCard.dataset.groupId = groupId;
+  groupList.appendChild(groupCard);
 
-  for (const rule of siteEntry.rules || []) {
+  for (const domain of groupEntry.domains || []) {
+    createDomainRow(groupCard, domain, { skipRefresh: true });
+  }
+
+  for (const rule of groupEntry.rules || []) {
     if (rule.type === "weekly-hours") {
-      createWeeklyRule(siteCard, rule);
+      createWeeklyRule(groupCard, rule, { skipRefresh: true });
     } else {
-      createDatetimeRule(siteCard, rule);
+      createDatetimeRule(groupCard, rule, { skipRefresh: true });
     }
   }
 
-  updateRuleEmptyState(siteCard);
-  setSiteExpanded(siteCard, expanded);
-  siteList.appendChild(siteCard);
-  updateAllSiteCards();
-  return siteCard;
+  updateDomainEmptyState(groupCard);
+  updateRuleEmptyState(groupCard);
+  setGroupExpanded(groupCard, expanded);
+  updateAllGroupCards();
+  return groupCard;
 }
 
-function readSiteRules() {
-  const siteEntries = Array.from(siteList.querySelectorAll(".site-card")).map((siteCard, siteIndex) => ({
-    domain: siteCard.querySelector('[data-field="domain"]').value,
-    sortOrder: siteIndex,
-    rules: Array.from(siteCard.querySelectorAll(".rule-card")).map((ruleElement, ruleIndex) => ({
+function readRuleGroups() {
+  const groupEntries = Array.from(groupList.querySelectorAll(".group-card")).map((groupCard, groupIndex) => ({
+    id: groupCard.dataset.groupId || undefined,
+    sortOrder: groupIndex,
+    domains: Array.from(groupCard.querySelectorAll(".domain-row [data-field='domain']")).map((input) => input.value),
+    rules: Array.from(groupCard.querySelectorAll(".rule-card")).map((ruleElement, ruleIndex) => ({
       ...readRuleElement(ruleElement),
       sortOrder: ruleIndex
     }))
   }));
 
-  return sanitizeSiteRules(siteEntries);
+  return sanitizeRuleGroups(groupEntries);
 }
 
 function syncVisibleOrderMetadata() {
-  Array.from(siteList.querySelectorAll(".site-card")).forEach((siteCard, siteIndex) => {
-    siteCard.dataset.sortOrder = String(siteIndex);
-    Array.from(siteCard.querySelectorAll(".rule-card")).forEach((ruleCard, ruleIndex) => {
+  Array.from(groupList.querySelectorAll(".group-card")).forEach((groupCard, groupIndex) => {
+    groupCard.dataset.sortOrder = String(groupIndex);
+    Array.from(groupCard.querySelectorAll(".rule-card")).forEach((ruleCard, ruleIndex) => {
       ruleCard.dataset.sortOrder = String(ruleIndex);
     });
   });
@@ -546,14 +660,14 @@ function syncVisibleOrderMetadata() {
 function renderOptions(data) {
   blockMessageInput.value = data.settings.blockMessage;
   emergencyLabelInput.value = data.settings.emergencyLabel;
-  siteSearchInput.value = "";
-  siteList.innerHTML = "";
+  groupSearchInput.value = "";
+  groupList.innerHTML = "";
 
-  for (const entry of data.siteRules) {
-    createSiteCard(entry);
+  for (const entry of data.ruleGroups) {
+    createGroupCard(entry);
   }
 
-  updateSiteEmptyState();
+  updateGroupEmptyState();
 }
 
 async function loadOptions() {
@@ -564,51 +678,64 @@ async function loadOptions() {
   updateStatus("Configuracion cargada.");
 }
 
-function handleSiteListClick(event) {
+function handleGroupListClick(event) {
   const actionButton = event.target.closest("[data-action]");
   if (!actionButton) {
     return;
   }
 
-  const siteCard = actionButton.closest(".site-card");
+  const groupCard = actionButton.closest(".group-card");
   const ruleElement = actionButton.closest(".rule-card");
+  const domainRow = actionButton.closest(".domain-row");
   const action = actionButton.dataset.action;
 
-  if (action === "toggle-site" && siteCard) {
-    setSiteExpanded(siteCard, siteCard.dataset.expanded !== "true");
+  if (action === "toggle-group" && groupCard) {
+    setGroupExpanded(groupCard, groupCard.dataset.expanded !== "true");
     return;
   }
 
-  if (action === "remove-site" && siteCard) {
-    siteCard.remove();
-    markDirty("Sitio eliminado. Guarda para confirmar el cambio.");
+  if (action === "remove-group" && groupCard) {
+    groupCard.remove();
+    markDirty("Grupo eliminado. Guarda para confirmar el cambio.");
     return;
   }
 
-  if (action === "add-datetime-rule" && siteCard) {
-    createDatetimeRule(siteCard);
+  if (action === "add-domain" && groupCard) {
+    createDomainRow(groupCard);
+    markDirty("Nueva web agregada al grupo.");
+    return;
+  }
+
+  if (action === "remove-domain" && groupCard && domainRow) {
+    domainRow.remove();
+    markDirty("Web eliminada del grupo.");
+    return;
+  }
+
+  if (action === "add-datetime-rule" && groupCard) {
+    createDatetimeRule(groupCard);
     markDirty("Nueva regla por fecha agregada.");
     return;
   }
 
-  if (action === "add-weekly-rule" && siteCard) {
-    createWeeklyRule(siteCard);
+  if (action === "add-weekly-rule" && groupCard) {
+    createWeeklyRule(groupCard);
     markDirty("Nuevo horario semanal agregado.");
     return;
   }
 
-  if (action === "remove-rule" && siteCard && ruleElement) {
+  if (action === "remove-rule" && groupCard && ruleElement) {
     ruleElement.remove();
     markDirty("Regla eliminada. Guarda para mantener el nuevo orden.");
     return;
   }
 
-  if (action === "duplicate-rule" && siteCard && ruleElement) {
-    duplicateRule(siteCard, ruleElement);
+  if (action === "duplicate-rule" && groupCard && ruleElement) {
+    duplicateRule(groupCard, ruleElement);
   }
 }
 
-function handleSiteListInput() {
+function handleGroupListInput() {
   markDirty();
 }
 
@@ -620,16 +747,16 @@ function handleDragStart(event) {
   const ruleCard = event.target.closest(".rule-card");
   if (ruleCard) {
     draggedRuleCard = ruleCard;
-    draggedRuleOwner = ruleCard.closest(".site-card");
+    draggedRuleOwner = ruleCard.closest(".group-card");
     draggedRuleCard.classList.add("is-dragging");
     event.dataTransfer.effectAllowed = "move";
     return;
   }
 
-  const siteCard = event.target.closest(".site-card");
-  if (siteCard) {
-    draggedSiteCard = siteCard;
-    draggedSiteCard.classList.add("is-dragging");
+  const groupCard = event.target.closest(".group-card");
+  if (groupCard) {
+    draggedGroupCard = groupCard;
+    draggedGroupCard.classList.add("is-dragging");
     event.dataTransfer.effectAllowed = "move";
   }
 }
@@ -649,28 +776,28 @@ function handleDragOver(event) {
     return;
   }
 
-  if (draggedSiteCard && event.target.closest("#siteList")) {
+  if (draggedGroupCard && event.target.closest("#groupList")) {
     event.preventDefault();
     clearDropTargets();
-    const dropTarget = getDropTarget(siteList, ".site-card", event.clientY, draggedSiteCard);
+    const dropTarget = getDropTarget(groupList, ".group-card", event.clientY, draggedGroupCard);
     if (dropTarget) {
       dropTarget.classList.add("drop-target");
-      siteList.insertBefore(draggedSiteCard, dropTarget);
+      groupList.insertBefore(draggedGroupCard, dropTarget);
     } else {
-      siteList.appendChild(draggedSiteCard);
+      groupList.appendChild(draggedGroupCard);
     }
   }
 }
 
 function handleDragEnd() {
-  const movedSite = Boolean(draggedSiteCard);
+  const movedGroup = Boolean(draggedGroupCard);
   const movedRule = Boolean(draggedRuleCard);
 
   clearDropTargets();
 
-  if (draggedSiteCard) {
-    draggedSiteCard.classList.remove("is-dragging");
-    draggedSiteCard = null;
+  if (draggedGroupCard) {
+    draggedGroupCard.classList.remove("is-dragging");
+    draggedGroupCard = null;
   }
 
   if (draggedRuleCard) {
@@ -679,28 +806,29 @@ function handleDragEnd() {
     draggedRuleOwner = null;
   }
 
-  if (movedSite || movedRule) {
+  if (movedGroup || movedRule) {
     syncVisibleOrderMetadata();
     markDirty("Orden actualizado. Guarda para conservarlo.");
   }
 }
 
-addSiteButton.addEventListener("click", () => {
-  const siteCard = createSiteCard(undefined, { expanded: true });
-  setSiteExpanded(siteCard, true);
-  markDirty("Nuevo sitio agregado.");
+addGroupButton.addEventListener("click", () => {
+  const groupCard = createGroupCard(undefined, { expanded: true });
+  setGroupExpanded(groupCard, true);
+  createDomainRow(groupCard);
+  markDirty("Nuevo grupo agregado.");
 });
 
 saveButton.addEventListener("click", async () => {
   syncVisibleOrderMetadata();
-  const siteRules = readSiteRules();
+  const ruleGroups = readRuleGroups();
   const settings = sanitizeSettings({
     blockMessage: blockMessageInput.value,
     emergencyLabel: emergencyLabelInput.value
   });
 
   const response = await sendMessage("save-options", {
-    siteRules,
+    ruleGroups,
     settings
   });
 
@@ -711,15 +839,15 @@ saveButton.addEventListener("click", async () => {
 });
 
 reloadButton.addEventListener("click", loadOptions);
-siteSearchInput.addEventListener("input", applySearchFilter);
-blockMessageInput.addEventListener("input", handleSiteListInput);
-emergencyLabelInput.addEventListener("input", handleSiteListInput);
-siteList.addEventListener("click", handleSiteListClick);
-siteList.addEventListener("input", handleSiteListInput);
-siteList.addEventListener("change", handleSiteListInput);
-siteList.addEventListener("dragstart", handleDragStart);
-siteList.addEventListener("dragover", handleDragOver);
-siteList.addEventListener("dragend", handleDragEnd);
-siteList.addEventListener("drop", (event) => event.preventDefault());
+groupSearchInput.addEventListener("input", applySearchFilter);
+blockMessageInput.addEventListener("input", handleGroupListInput);
+emergencyLabelInput.addEventListener("input", handleGroupListInput);
+groupList.addEventListener("click", handleGroupListClick);
+groupList.addEventListener("input", handleGroupListInput);
+groupList.addEventListener("change", handleGroupListInput);
+groupList.addEventListener("dragstart", handleDragStart);
+groupList.addEventListener("dragover", handleDragOver);
+groupList.addEventListener("dragend", handleDragEnd);
+groupList.addEventListener("drop", (event) => event.preventDefault());
 
 loadOptions();

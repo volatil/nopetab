@@ -5,9 +5,9 @@ const RULE_TYPE_WEEKLY_HOURS = "weekly-hours";
 const WEEKDAY_LABELS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 
 const DEFAULT_DATA = {
-  siteRules: [],
+  ruleGroups: [],
   emergencyUnlock: {
-    activeSiteDomain: null,
+    activeDomain: null,
     activeRuleId: null,
     occurrenceStart: null,
     unlockedAt: null
@@ -203,17 +203,39 @@ function withNormalizedRuleSortOrder(rules) {
   }));
 }
 
-function withNormalizedSiteSortOrder(siteRules) {
-  return siteRules.map((siteEntry, index) => ({
-    ...siteEntry,
+function withNormalizedGroupSortOrder(ruleGroups) {
+  return ruleGroups.map((groupEntry, index) => ({
+    ...groupEntry,
     sortOrder: index,
-    rules: withNormalizedRuleSortOrder(siteEntry.rules || [])
+    rules: withNormalizedRuleSortOrder(groupEntry.rules || [])
   }));
 }
 
-function sanitizeSiteEntry(entry, now = new Date(), fallbackSortOrder = 0) {
-  const domain = normalizeDomain(entry && entry.domain);
-  if (!domain) {
+function sanitizeDomainList(domains) {
+  const values = Array.isArray(domains) ? domains : [];
+  const uniqueDomains = new Set();
+  const normalizedDomains = [];
+
+  for (const value of values) {
+    const normalizedDomain = normalizeDomain(value);
+    if (!normalizedDomain || uniqueDomains.has(normalizedDomain)) {
+      continue;
+    }
+
+    uniqueDomains.add(normalizedDomain);
+    normalizedDomains.push(normalizedDomain);
+  }
+
+  return normalizedDomains.sort((left, right) => left.localeCompare(right));
+}
+
+function sanitizeRuleGroup(entry, now = new Date(), fallbackSortOrder = 0) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const domains = sanitizeDomainList(entry.domains);
+  if (!domains.length) {
     return null;
   }
 
@@ -236,13 +258,27 @@ function sanitizeSiteEntry(entry, now = new Date(), fallbackSortOrder = 0) {
   }
 
   return {
-    domain,
+    id:
+      typeof entry.id === "string" && entry.id
+        ? entry.id
+        : `group-${domains.join("-")}-${rules.length}`,
+    domains,
     sortOrder: Number.isFinite(Number(entry.sortOrder)) ? Number(entry.sortOrder) : fallbackSortOrder,
     rules: withNormalizedRuleSortOrder(rules.sort(compareRules))
   };
 }
 
 function migrateLegacySiteRules(data) {
+  const siteRules = Array.isArray(data && data.siteRules) ? data.siteRules : [];
+  if (siteRules.length) {
+    return siteRules.map((entry, index) => ({
+      id: `legacy-group-${index}`,
+      domains: [entry && entry.domain],
+      sortOrder: Number.isFinite(Number(entry && entry.sortOrder)) ? Number(entry.sortOrder) : index,
+      rules: Array.isArray(entry && entry.rules) ? entry.rules : []
+    }));
+  }
+
   const blockedSites = Array.isArray(data && data.blockedSites) ? data.blockedSites : [];
   const blockWindows = Array.isArray(data && data.blockWindows) ? data.blockWindows : [];
   if (!blockedSites.length || !blockWindows.length) {
@@ -255,55 +291,71 @@ function migrateLegacySiteRules(data) {
     endAt: entry && entry.endAt
   }));
 
-  return blockedSites.map((domain) => ({
-    domain,
+  return blockedSites.map((domain, index) => ({
+    id: `legacy-window-group-${index}`,
+    domains: [domain],
+    sortOrder: index,
     rules: legacyRules
   }));
 }
 
-function sanitizeSiteRules(entries, now = new Date()) {
+function sanitizeRuleGroups(entries, now = new Date()) {
   const sourceEntries = Array.isArray(entries) ? entries : [];
   const uniqueDomains = new Set();
-  const siteRules = [];
+  const ruleGroups = [];
+  let groupIndex = 0;
 
-  let siteIndex = 0;
   for (const entry of sourceEntries) {
-    const normalizedEntry = sanitizeSiteEntry(entry, now, siteIndex);
-    if (!normalizedEntry || uniqueDomains.has(normalizedEntry.domain)) {
+    const normalizedGroup = sanitizeRuleGroup(entry, now, groupIndex);
+    if (!normalizedGroup) {
       continue;
     }
 
-    uniqueDomains.add(normalizedEntry.domain);
-    siteRules.push(normalizedEntry);
-    siteIndex += 1;
+    const uniqueGroupDomains = normalizedGroup.domains.filter((domain) => !uniqueDomains.has(domain));
+    if (!uniqueGroupDomains.length) {
+      continue;
+    }
+
+    for (const domain of uniqueGroupDomains) {
+      uniqueDomains.add(domain);
+    }
+
+    ruleGroups.push({
+      ...normalizedGroup,
+      domains: uniqueGroupDomains
+    });
+    groupIndex += 1;
   }
 
-  return withNormalizedSiteSortOrder(siteRules.sort((left, right) => {
+  return withNormalizedGroupSortOrder(ruleGroups.sort((left, right) => {
     const leftSortOrder = Number.isFinite(Number(left.sortOrder)) ? Number(left.sortOrder) : 0;
     const rightSortOrder = Number.isFinite(Number(right.sortOrder)) ? Number(right.sortOrder) : 0;
-    return leftSortOrder - rightSortOrder || left.domain.localeCompare(right.domain);
+    const leftLabel = left.domains.join(",");
+    const rightLabel = right.domains.join(",");
+    return leftSortOrder - rightSortOrder || leftLabel.localeCompare(rightLabel);
   }));
 }
 
-function sanitizeEmergencyUnlock(unlock, siteRules) {
+function sanitizeEmergencyUnlock(unlock, ruleGroups) {
   const defaults = cloneDefaultData().emergencyUnlock;
-  const activeSiteDomain =
-    unlock && typeof unlock.activeSiteDomain === "string" ? normalizeDomain(unlock.activeSiteDomain) : null;
+  const activeDomain = unlock && typeof unlock.activeDomain === "string" ? normalizeDomain(unlock.activeDomain) : null;
   const activeRuleId = unlock && typeof unlock.activeRuleId === "string" ? unlock.activeRuleId : null;
   const occurrenceStart = unlock && typeof unlock.occurrenceStart === "string" ? unlock.occurrenceStart : null;
   const unlockedAt = unlock ? Number(unlock.unlockedAt) || null : null;
 
-  if (!activeSiteDomain || !activeRuleId || !occurrenceStart || !unlockedAt) {
+  if (!activeDomain || !activeRuleId || !occurrenceStart || !unlockedAt) {
     return defaults;
   }
 
-  const matchingSite = siteRules.find((entry) => entry.domain === activeSiteDomain);
-  if (!matchingSite || !matchingSite.rules.some((rule) => rule.id === activeRuleId)) {
+  const matchingGroup = ruleGroups.find(
+    (entry) => entry.domains.includes(activeDomain) && entry.rules.some((rule) => rule.id === activeRuleId)
+  );
+  if (!matchingGroup) {
     return defaults;
   }
 
   return {
-    activeSiteDomain,
+    activeDomain,
     activeRuleId,
     occurrenceStart,
     unlockedAt
@@ -323,12 +375,12 @@ function sanitizeSettings(settings) {
 
 function sanitizeData(data) {
   const defaults = cloneDefaultData();
-  const rawSiteRules = Array.isArray(data && data.siteRules) ? data.siteRules : migrateLegacySiteRules(data);
-  const siteRules = sanitizeSiteRules(rawSiteRules);
+  const rawRuleGroups = Array.isArray(data && data.ruleGroups) ? data.ruleGroups : migrateLegacySiteRules(data);
+  const ruleGroups = sanitizeRuleGroups(rawRuleGroups);
 
   return {
-    siteRules,
-    emergencyUnlock: sanitizeEmergencyUnlock((data && data.emergencyUnlock) || defaults.emergencyUnlock, siteRules),
+    ruleGroups,
+    emergencyUnlock: sanitizeEmergencyUnlock((data && data.emergencyUnlock) || defaults.emergencyUnlock, ruleGroups),
     settings: sanitizeSettings((data && data.settings) || defaults.settings)
   };
 }
@@ -336,7 +388,7 @@ function sanitizeData(data) {
 async function getData() {
   const stored = await chrome.storage.local.get(STORAGE_KEY);
   const merged = sanitizeData(stored[STORAGE_KEY] || cloneDefaultData());
-  if (!stored[STORAGE_KEY]) {
+  if (!stored[STORAGE_KEY] || JSON.stringify(stored[STORAGE_KEY]) !== JSON.stringify(merged)) {
     await setData(merged);
   }
   return merged;
@@ -359,13 +411,38 @@ function matchesBlockedSite(hostname, domain) {
   return cleanHostname === domain || cleanHostname.endsWith(`.${domain}`);
 }
 
-function getMatchingSiteRule(hostname, siteRules) {
-  const matches = (siteRules || []).filter((entry) => matchesBlockedSite(hostname, entry.domain));
+function getMatchingRuleGroup(hostname, ruleGroups) {
+  const matches = [];
+
+  for (const groupEntry of ruleGroups || []) {
+    for (const domain of groupEntry.domains || []) {
+      if (!matchesBlockedSite(hostname, domain)) {
+        continue;
+      }
+
+      matches.push({
+        groupEntry,
+        matchedDomain: domain
+      });
+    }
+  }
+
   if (!matches.length) {
     return null;
   }
 
-  return matches.sort((left, right) => right.domain.length - left.domain.length)[0];
+  matches.sort((left, right) => {
+    const lengthDiff = right.matchedDomain.length - left.matchedDomain.length;
+    if (lengthDiff !== 0) {
+      return lengthDiff;
+    }
+
+    const leftSortOrder = Number.isFinite(Number(left.groupEntry.sortOrder)) ? Number(left.groupEntry.sortOrder) : 0;
+    const rightSortOrder = Number.isFinite(Number(right.groupEntry.sortOrder)) ? Number(right.groupEntry.sortOrder) : 0;
+    return leftSortOrder - rightSortOrder;
+  });
+
+  return matches[0];
 }
 
 function minutesFromTimeString(value) {
@@ -419,7 +496,7 @@ function getDatetimeRuleOccurrence(rule, now = new Date()) {
     rule,
     occurrenceStart: rule.startAt,
     occurrenceEnd: rule.endAt,
-    start: start.getTime() <= nowMs ? start : start,
+    start,
     end,
     isActive: nowMs >= start.getTime() && nowMs < end.getTime()
   };
@@ -539,12 +616,12 @@ function getRuleOccurrence(rule, now = new Date()) {
   return null;
 }
 
-function getActiveRule(siteEntry, now = new Date()) {
-  if (!siteEntry || !Array.isArray(siteEntry.rules)) {
+function getActiveRule(groupEntry, now = new Date()) {
+  if (!groupEntry || !Array.isArray(groupEntry.rules)) {
     return null;
   }
 
-  for (const rule of siteEntry.rules) {
+  for (const rule of groupEntry.rules) {
     const occurrence = getRuleOccurrence(rule, now);
     if (occurrence && occurrence.isActive) {
       return occurrence;
@@ -554,17 +631,18 @@ function getActiveRule(siteEntry, now = new Date()) {
   return null;
 }
 
-function getNextRule(siteEntry, now = new Date()) {
-  if (!siteEntry || !Array.isArray(siteEntry.rules)) {
+function getNextRule(groupEntry, now = new Date()) {
+  if (!groupEntry || !Array.isArray(groupEntry.rules)) {
     return null;
   }
 
   const candidates = [];
-  for (const rule of siteEntry.rules) {
+  for (const rule of groupEntry.rules) {
     const occurrence = getRuleOccurrence(rule, now);
     if (!occurrence || occurrence.isActive) {
       continue;
     }
+
     candidates.push(occurrence);
   }
 
@@ -573,41 +651,49 @@ function getNextRule(siteEntry, now = new Date()) {
 }
 
 function getBlockState(data, hostname, now = new Date()) {
-  const siteEntry = hostname ? getMatchingSiteRule(hostname, data.siteRules) : null;
-  const activeRule = siteEntry ? getActiveRule(siteEntry, now) : null;
+  const matchingGroup = hostname ? getMatchingRuleGroup(hostname, data.ruleGroups) : null;
+  const groupEntry = matchingGroup ? matchingGroup.groupEntry : null;
+  const matchedDomain = matchingGroup ? matchingGroup.matchedDomain : null;
+  const activeRule = groupEntry ? getActiveRule(groupEntry, now) : null;
   const emergencyUnlocked = Boolean(
     activeRule &&
-      data.emergencyUnlock.activeSiteDomain === siteEntry.domain &&
+      matchedDomain &&
+      data.emergencyUnlock.activeDomain === matchedDomain &&
       data.emergencyUnlock.activeRuleId === activeRule.rule.id &&
       data.emergencyUnlock.occurrenceStart === activeRule.occurrenceStart
   );
 
   return {
     hostname: hostname || null,
-    siteEntry,
+    groupEntry,
+    matchedDomain,
     blocked: Boolean(activeRule) && !emergencyUnlocked,
     reason: activeRule ? activeRule.rule.type : "none",
     activeRule,
-    nextRule: siteEntry ? getNextRule(siteEntry, now) : null,
+    nextRule: groupEntry ? getNextRule(groupEntry, now) : null,
     emergencyUnlocked
   };
 }
 
-function getSitePreview(siteEntry, emergencyUnlock, now = new Date()) {
-  const activeRule = getActiveRule(siteEntry, now);
+function getGroupPreview(groupEntry, emergencyUnlock, now = new Date(), previewDomain = null) {
+  const activeRule = getActiveRule(groupEntry, now);
+  const domains = Array.isArray(groupEntry && groupEntry.domains) ? groupEntry.domains : [];
+  const activeDomain = normalizeDomain(previewDomain) || domains[0] || null;
   const emergencyUnlocked = Boolean(
-    siteEntry &&
+    groupEntry &&
       activeRule &&
       emergencyUnlock &&
-      emergencyUnlock.activeSiteDomain === siteEntry.domain &&
+      activeDomain &&
+      emergencyUnlock.activeDomain === activeDomain &&
       emergencyUnlock.activeRuleId === activeRule.rule.id &&
       emergencyUnlock.occurrenceStart === activeRule.occurrenceStart
   );
 
   return {
-    siteEntry: siteEntry || null,
+    groupEntry: groupEntry || null,
+    activeDomain,
     activeRule,
-    nextRule: siteEntry ? getNextRule(siteEntry, now) : null,
+    nextRule: groupEntry ? getNextRule(groupEntry, now) : null,
     blocked: Boolean(activeRule) && !emergencyUnlocked,
     emergencyUnlocked
   };
@@ -652,6 +738,10 @@ function formatOccurrenceSummary(occurrence) {
   return `Proximo: ${formatDateTimeForDisplay(occurrence.occurrenceStart)} - ${formatDateTimeForDisplay(occurrence.occurrenceEnd)}`;
 }
 
+function formatDomainCount(count) {
+  return `${count} ${count === 1 ? "web" : "webs"}`;
+}
+
 function getBlockedPageUrl(targetUrl) {
   const url = new URL(chrome.runtime.getURL(BLOCKED_PAGE_PATH));
   url.searchParams.set("target", targetUrl);
@@ -673,19 +763,20 @@ globalThis.NopeTabStorage = {
   formatRuleDays,
   formatRuleSummary,
   formatOccurrenceSummary,
+  formatDomainCount,
   sanitizeRule,
-  sanitizeSiteRules,
+  sanitizeRuleGroups,
   sanitizeSettings,
   sanitizeData,
   getData,
   setData,
   updateData,
   matchesBlockedSite,
-  getMatchingSiteRule,
+  getMatchingRuleGroup,
   getRuleOccurrence,
   getActiveRule,
   getNextRule,
   getBlockState,
-  getSitePreview,
+  getGroupPreview,
   getBlockedPageUrl
 };

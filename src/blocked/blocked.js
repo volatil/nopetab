@@ -202,12 +202,13 @@ async function loadBlockedState() {
 
   const response = await sendMessage("get-state", { targetUrl });
   const activeRule = response.blockState.activeRule;
-  const currentDomain = response.blockState.siteEntry ? response.blockState.siteEntry.domain : targetHost;
+  const currentDomain = response.blockState.matchedDomain || targetHost;
+  const currentGroup = response.blockState.groupEntry ? response.blockState.groupEntry.domains.join(", ") : currentDomain;
 
   reasonText.textContent = `El acceso a ${currentDomain} esta bloqueado en este momento.`;
   detailText.textContent = activeRule
     ? formatOccurrence(activeRule)
-    : "El sitio coincide con una regla configurada.";
+    : `La web coincide con un grupo configurado (${currentGroup}).`;
   messageText.textContent = response.data.settings.blockMessage;
   targetText.textContent = `Intentaste abrir ${targetHost}.`;
   emergencyButton.textContent = response.data.settings.emergencyLabel;

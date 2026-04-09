@@ -55,13 +55,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     if (action === "save-options") {
       const nextData = await storageApi.updateData(() => ({
-        siteRules: message.payload.siteRules,
+        ruleGroups: message.payload.ruleGroups,
         settings: {
           blockMessage: message.payload.settings.blockMessage,
           emergencyLabel: message.payload.settings.emergencyLabel
         },
         emergencyUnlock: {
-          activeSiteDomain: null,
+          activeDomain: null,
           activeRuleId: null,
           occurrenceStart: null,
           unlockedAt: null
@@ -85,16 +85,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       const currentData = await storageApi.getData();
       const blockState = storageApi.getBlockState(currentData, hostname);
-      if (!blockState.activeRule || !blockState.siteEntry) {
+      if (!blockState.activeRule || !blockState.groupEntry || !blockState.matchedDomain) {
         sendResponse({ ok: false, error: "emergency-unlock-not-available" });
         return;
       }
 
       const nextData = await storageApi.updateData((data) => ({
-        siteRules: data.siteRules,
+        ruleGroups: data.ruleGroups,
         settings: data.settings,
         emergencyUnlock: {
-          activeSiteDomain: blockState.siteEntry.domain,
+          activeDomain: blockState.matchedDomain,
           activeRuleId: blockState.activeRule.rule.id,
           occurrenceStart: blockState.activeRule.occurrenceStart,
           unlockedAt: Date.now()
