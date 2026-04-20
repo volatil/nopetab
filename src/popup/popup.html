@@ -9,30 +9,42 @@
   </head>
   <body>
     <main class="shell popup-shell stack">
-      <section class="hero stack">
-        <span class="badge" id="statusBadge">Cargando</span>
+      <section class="popup-hero stack surface-accent">
+        <div class="popup-hero-top inline-row">
+          <span class="eyebrow">NopeTab</span>
+          <span class="badge" id="statusBadge">Cargando</span>
+        </div>
         <div class="stack compact">
-          <h1>NopeTab</h1>
-          <p class="section-copy">Bloquea grupos de webs con reglas compartidas por fecha o por horario semanal.</p>
+          <h1>Protege tu atencion sin volverlo una pelea.</h1>
+          <p class="lead">Consulta el estado del sitio actual, anticipa la siguiente ventana y ajusta tus bloques cuando haga falta.</p>
         </div>
       </section>
 
-      <section class="card stack">
-        <h2 class="section-title">Estado del sitio actual</h2>
-        <p class="status-text" id="stateSummary"></p>
-        <p class="status-text" id="windowSummary"></p>
-        <p class="status-text" id="siteSummary"></p>
+      <section class="card popup-panel stack">
+        <div class="stack compact">
+          <span class="eyebrow">Ahora mismo</span>
+          <h2 class="section-title">Estado del sitio actual</h2>
+        </div>
+        <div class="popup-copy stack compact">
+          <p class="status-text status-strong" id="stateSummary"></p>
+          <p class="status-text" id="windowSummary"></p>
+          <p class="status-text" id="siteSummary"></p>
+        </div>
       </section>
 
-      <section class="card stack">
-        <h2 class="section-title">Proxima regla</h2>
-        <p class="status-text" id="nextWindowSummary">Cargando contexto del sitio...</p>
+      <section class="card popup-panel stack">
+        <div class="stack compact">
+          <span class="eyebrow">Lo que sigue</span>
+          <h2 class="section-title">Proxima ventana compartida</h2>
+        </div>
+        <p class="status-text" id="nextWindowSummary">Estamos leyendo el contexto del sitio para mostrarte la siguiente regla.</p>
       </section>
 
-      <section class="card stack">
-        <div class="inline-row">
-          <button id="openOptionsButton" class="ghost">Abrir configuracion</button>
-          <button id="refreshButton" class="secondary">Actualizar</button>
+      <section class="popup-actions card stack">
+        <p class="note">Cuando quieras revisar grupos, mensajes o ventanas, puedes ir directo a la configuracion completa.</p>
+        <div class="inline-row popup-action-row">
+          <button id="openOptionsButton" type="button">Abrir configuracion</button>
+          <button id="refreshButton" type="button" class="secondary">Actualizar vista</button>
         </div>
       </section>
     </main>
@@ -40,4 +52,4 @@
     <script src="../lib/storage.js"></script>
     <script src="popup.js"></script>
   </body>
-  </html>
+</html>

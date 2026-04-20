@@ -204,13 +204,13 @@ function updateGroupEmptyState() {
 
   if (!totalGroupCards) {
     groupEmptyState.hidden = false;
-    groupEmptyState.textContent = "Todavia no hay grupos configurados.";
+    groupEmptyState.textContent = "Aun no hay grupos configurados. Crea el primero para empezar a ordenar tus bloques.";
     return;
   }
 
   groupEmptyState.hidden = visibleGroupCards.length > 0;
   if (!visibleGroupCards.length) {
-    groupEmptyState.textContent = "No hay grupos que coincidan con la busqueda.";
+    groupEmptyState.textContent = "No encontramos grupos que coincidan con esta busqueda.";
   }
 }
 
@@ -222,7 +222,7 @@ function setGroupExpanded(groupCard, expanded) {
   const toggleButton = groupCard.querySelector('[data-action="toggle-group"]');
   const groupPanel = groupCard.querySelector('[data-role="group-panel"]');
   groupCard.dataset.expanded = expanded ? "true" : "false";
-  toggleButton.textContent = expanded ? "Ocultar reglas" : "Ver reglas";
+  toggleButton.textContent = expanded ? "Ocultar interior" : "Ver interior";
   toggleButton.setAttribute("aria-expanded", expanded ? "true" : "false");
   groupPanel.hidden = !expanded;
 }
@@ -238,10 +238,10 @@ function setGroupEnabled(groupCard, enabled) {
   groupCard.classList.toggle("group-disabled", !enabledValue);
 
   if (toggleEnabledButton) {
-    toggleEnabledButton.textContent = enabledValue ? "Desactivar bloque" : "Activar bloque";
+    toggleEnabledButton.textContent = enabledValue ? "Pausar bloque" : "Reactivar bloque";
     toggleEnabledButton.title = enabledValue
-      ? "Desactiva este bloque sin perder sus webs y reglas."
-      : "Activa este bloque para volver a bloquear segun sus reglas.";
+      ? "Pausa este bloque sin perder sus webs ni sus reglas."
+      : "Reactiva este bloque para volver a aplicar sus reglas.";
   }
 }
 
@@ -401,26 +401,26 @@ function updateGroupOverview(groupCard, validRuleCount, validDomainCount) {
     : "Sin webs todavia.";
 
   if (!enabled) {
-    statusBadge.textContent = "Desactivado";
+    statusBadge.textContent = "En pausa";
     statusBadge.className = "badge warning";
-    summaryText.textContent = "Bloque desactivado: no aplica bloqueo.";
-    nextText.textContent = "Activalo cuando quieras para volver a usar sus reglas.";
+    summaryText.textContent = "Este grupo esta en pausa, asi que no bloqueara aunque tenga reglas cargadas.";
+    nextText.textContent = "Puedes reactivarlo cuando quieras sin perder su configuracion.";
     return;
   }
 
   if (!validDomainCount) {
     statusBadge.textContent = "Webs invalidas";
     statusBadge.className = "badge danger";
-    summaryText.textContent = "Agrega al menos una web valida para activar la vista previa.";
-    nextText.textContent = "Todavia no se puede calcular el siguiente bloqueo.";
+    summaryText.textContent = "Necesitas al menos una web valida para que este grupo pueda funcionar.";
+    nextText.textContent = "Todavia no podemos calcular la siguiente ventana de bloqueo.";
     return;
   }
 
   if (!groupEntry || !validRuleCount) {
-    statusBadge.textContent = "Sin reglas validas";
+    statusBadge.textContent = "Sin reglas listas";
     statusBadge.className = "badge warning";
-    summaryText.textContent = `${formatDomainCount(validDomainCount)} en este grupo, pero aun no hay reglas listas para usarse.`;
-    nextText.textContent = "Corrige las reglas para ver su estado y la siguiente ventana.";
+    summaryText.textContent = `${formatDomainCount(validDomainCount)} en este grupo, pero aun no hay reglas listas para entrar en accion.`;
+    nextText.textContent = "Corrige o completa las reglas para ver el estado y la siguiente ventana.";
     return;
   }
 
@@ -428,24 +428,24 @@ function updateGroupOverview(groupCard, validRuleCount, validDomainCount) {
   if (preview.blocked) {
     statusBadge.textContent = "Bloqueando ahora";
     statusBadge.className = "badge danger";
-    summaryText.textContent = `Bloqueando ${formatDomainCount(groupEntry.domains.length)}: ${formatRuleSummary(preview.activeRule.rule)}.`;
+    summaryText.textContent = `Este grupo esta bloqueando ${formatDomainCount(groupEntry.domains.length)} con la ventana ${formatRuleSummary(preview.activeRule.rule)}.`;
   } else if (preview.activeRule && preview.emergencyUnlocked) {
     statusBadge.textContent = "Bypass activo";
     statusBadge.className = "badge warning";
-    summaryText.textContent = `La regla actual sigue corriendo, pero ${preview.activeDomain} esta desbloqueado de emergencia.`;
+    summaryText.textContent = `La regla actual sigue corriendo, pero ${preview.activeDomain} fue liberado de emergencia.`;
   } else if (preview.nextRule) {
     statusBadge.textContent = "Listo";
     statusBadge.className = "badge active";
-    summaryText.textContent = `${formatDomainCount(groupEntry.domains.length)} configuradas y sin bloqueo activo ahora.`;
+    summaryText.textContent = `${formatDomainCount(groupEntry.domains.length)} listas y sin bloqueo activo en este instante.`;
   } else {
-    statusBadge.textContent = "Sin proximas reglas";
+    statusBadge.textContent = "Sin proxima ventana";
     statusBadge.className = "badge";
-    summaryText.textContent = `${formatDomainCount(groupEntry.domains.length)} configuradas, pero sin ventanas futuras.`;
+    summaryText.textContent = `${formatDomainCount(groupEntry.domains.length)} configuradas, pero sin ventanas futuras por ahora.`;
   }
 
   nextText.textContent = preview.nextRule
     ? formatOccurrenceSummary(preview.nextRule)
-    : "No hay ninguna regla futura para este grupo.";
+    : "No hay ninguna ventana futura para este grupo.";
 }
 
 function validateGroupCard(groupCard, duplicateDomainCounts) {
@@ -573,7 +573,7 @@ function updateSaveAvailability() {
   if (hasInvalidGroup) {
     updateStatus("Corrige los errores marcados antes de guardar.");
   } else if (isDirty) {
-    updateStatus("Hay cambios sin guardar.");
+    updateStatus("Hay cambios listos para guardar.");
   }
 
   applySearchFilter();
@@ -706,7 +706,7 @@ async function loadOptions() {
   currentData = response.data;
   isDirty = false;
   renderOptions(response.data);
-  updateStatus("Configuracion cargada.");
+  updateStatus("Configuracion cargada y lista para editar.");
 }
 
 function handleGroupListClick(event) {
@@ -727,14 +727,14 @@ function handleGroupListClick(event) {
 
   if (action === "remove-group" && groupCard) {
     groupCard.remove();
-    markDirty("Grupo eliminado. Guarda para confirmar el cambio.");
+    markDirty("Grupo eliminado. Guarda para confirmar este nuevo mapa de bloques.");
     return;
   }
 
   if (action === "toggle-enabled" && groupCard) {
     const nextEnabled = !isGroupEnabled(groupCard);
     setGroupEnabled(groupCard, nextEnabled);
-    markDirty(nextEnabled ? "Bloque activado." : "Bloque desactivado.");
+    markDirty(nextEnabled ? "Bloque reactivado." : "Bloque pausado.");
     return;
   }
 
@@ -752,19 +752,19 @@ function handleGroupListClick(event) {
 
   if (action === "add-datetime-rule" && groupCard) {
     createDatetimeRule(groupCard);
-    markDirty("Nueva regla por fecha agregada.");
+    markDirty("Nueva ventana puntual agregada.");
     return;
   }
 
   if (action === "add-weekly-rule" && groupCard) {
     createWeeklyRule(groupCard);
-    markDirty("Nuevo horario semanal agregado.");
+    markDirty("Nuevo ritmo semanal agregado.");
     return;
   }
 
   if (action === "remove-rule" && groupCard && ruleElement) {
     ruleElement.remove();
-    markDirty("Regla eliminada. Guarda para mantener el nuevo orden.");
+    markDirty("Ventana eliminada. Guarda para conservar el nuevo orden.");
     return;
   }
 
@@ -873,7 +873,7 @@ saveButton.addEventListener("click", async () => {
   currentData = response.data;
   isDirty = false;
   renderOptions(response.data);
-  updateStatus("Cambios guardados correctamente.");
+  updateStatus("Cambios guardados. NopeTab ya esta trabajando con esta nueva configuracion.");
 });
 
 reloadButton.addEventListener("click", loadOptions);

@@ -155,7 +155,7 @@ function startCountdown(deadline, targetUrl) {
 
   countdownDeadlineMs = deadline.getTime();
   countdownPanel.hidden = false;
-  countdownDeadlineText.textContent = `Se desbloquea a las ${deadline.toLocaleTimeString([], {
+  countdownDeadlineText.textContent = `Esta ventana termina a las ${deadline.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit"
@@ -187,16 +187,16 @@ async function loadBlockedState() {
   retryLink.hidden = !canRetry;
   retryLink.disabled = !canRetry;
   retryHintText.textContent = canRetry
-    ? "Cuando termine el bloqueo, usa este link para volver a cargar la pagina original."
-    : "No se pudo recuperar una direccion valida para reintentar la navegacion.";
+    ? "Cuando termine la ventana, puedes volver a intentar abrir la pagina original desde aqui."
+    : "No pudimos recuperar una direccion valida para reintentar la navegacion.";
 
   if (!canRetry) {
     hideCountdown();
     reasonText.textContent = `El acceso a ${targetHost} esta bloqueado en este momento.`;
-    detailText.textContent = "No se pudo verificar la URL original que intentaste abrir.";
-    targetText.textContent = "No hay una direccion valida disponible para volver a intentar.";
+    detailText.textContent = "No pudimos verificar con seguridad la URL original que intentaste abrir.";
+    targetText.textContent = "No hay una direccion valida disponible para volver a intentarlo desde esta pantalla.";
     emergencyButton.disabled = true;
-    emergencyButton.title = "No hay una URL valida para aplicar el desbloqueo de emergencia.";
+    emergencyButton.title = "No hay una URL valida sobre la que aplicar el desbloqueo de emergencia.";
     return;
   }
 
@@ -205,7 +205,7 @@ async function loadBlockedState() {
   const currentDomain = response.blockState.matchedDomain || targetHost;
   const currentGroup = response.blockState.groupEntry ? response.blockState.groupEntry.domains.join(", ") : currentDomain;
 
-  reasonText.textContent = `El acceso a ${currentDomain} esta bloqueado en este momento.`;
+  reasonText.textContent = `Ahora mismo ${currentDomain} forma parte de una ventana activa.`;
   detailText.textContent = activeRule
     ? formatOccurrence(activeRule)
     : `La web coincide con un grupo configurado (${currentGroup}).`;
@@ -216,7 +216,7 @@ async function loadBlockedState() {
   if (!activeRule || response.blockState.emergencyUnlocked) {
     hideCountdown();
     emergencyButton.disabled = true;
-    emergencyButton.title = "El desbloqueo de emergencia solo aplica a la regla activa actual de este sitio.";
+    emergencyButton.title = "El desbloqueo de emergencia solo aplica a la ventana activa actual de este sitio.";
   } else {
     const activeEnd = parseDateTimeValue(activeRule.occurrenceEnd);
     startCountdown(activeEnd, targetUrl);

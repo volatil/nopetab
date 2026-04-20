@@ -9,30 +9,38 @@
   </head>
   <body>
     <main class="blocked-shell shell">
-      <section class="stack">
-        <span class="badge danger">Sitio bloqueado</span>
-        <h1>Vuelve a lo importante</h1>
-        <p class="section-copy" id="reasonText"></p>
-        <p class="status-text" id="detailText"></p>
+      <section class="blocked-hero stack">
+        <span class="badge danger">Bloque activo</span>
+        <div class="stack compact">
+          <h1>Haz una pausa antes de volver a entrar.</h1>
+          <p class="lead" id="reasonText"></p>
+          <p class="status-text" id="detailText"></p>
+        </div>
       </section>
 
       <section class="message-panel">
+        <span class="eyebrow">Recordatorio</span>
         <p id="messageText"></p>
       </section>
 
       <section class="countdown-panel" id="countdownPanel" hidden>
-        <p class="countdown-label">Tiempo restante</p>
-        <p class="countdown-value" id="countdownValue">--:--</p>
-        <p class="status-text" id="countdownDeadlineText"></p>
+        <div class="stack compact">
+          <span class="eyebrow">Tiempo restante</span>
+          <p class="countdown-value" id="countdownValue">--:--</p>
+          <p class="status-text" id="countdownDeadlineText"></p>
+        </div>
       </section>
 
-      <section class="card stack">
-        <p class="status-text" id="targetText"></p>
-        <p class="status-text" id="retryHintText"></p>
-        <button id="retryLink" class="text-action" type="button">Refrescar</button>
-        <div class="inline-row">
-          <button id="emergencyButton" class="danger">Necesito entrar igual</button>
-          <button id="closeButton" class="secondary">Cerrar pestana</button>
+      <section class="card blocked-actions stack">
+        <div class="stack compact">
+          <span class="eyebrow">Siguiente decision</span>
+          <p class="status-text status-strong" id="targetText"></p>
+          <p class="status-text" id="retryHintText"></p>
+        </div>
+        <button id="retryLink" class="ghost text-action" type="button">Volver a intentar cuando termine</button>
+        <div class="inline-row blocked-action-row">
+          <button id="emergencyButton" class="danger" type="button">Necesito entrar igual</button>
+          <button id="closeButton" class="secondary" type="button">Cerrar pestana</button>
         </div>
       </section>
     </main>
@@ -40,4 +48,4 @@
     <script src="../lib/storage.js"></script>
     <script src="blocked.js"></script>
   </body>
-  </html>
+</html>

@@ -72,36 +72,36 @@ function renderState(snapshot) {
   const currentGroup = blockState.groupEntry || null;
   const groupDomainSummary = currentGroup ? currentGroup.domains.join(", ") : null;
 
-  statusBadge.textContent = blockState.blocked ? "Bloqueando" : "Libre";
-  statusBadge.className = `badge ${blockState.blocked ? "active" : ""}`.trim();
+  statusBadge.textContent = blockState.blocked ? "Bloque activo" : "En calma";
+  statusBadge.className = `badge ${blockState.blocked ? "danger" : "active"}`.trim();
 
   if (blockState.blocked) {
     stateSummary.textContent = blockState.emergencyUnlocked
-      ? "La regla actual de este sitio fue liberada de emergencia."
-      : "El sitio actual coincide con una regla activa.";
+      ? "Esta ventana ya fue abierta con desbloqueo de emergencia durante la regla actual."
+      : "El sitio actual cayo dentro de una ventana activa y NopeTab lo esta sosteniendo por ti.";
   } else if (blockState.activeRule && blockState.emergencyUnlocked) {
-    stateSummary.textContent = "La regla actual sigue corriendo, pero ya fue desbloqueada de emergencia.";
+    stateSummary.textContent = "La regla sigue corriendo, pero este sitio ya fue liberado de emergencia.";
   } else if (currentDomain) {
-    stateSummary.textContent = "La web actual pertenece a un grupo configurado, pero ahora no tiene una regla activa.";
+    stateSummary.textContent = "La web actual pertenece a un grupo configurado, pero ahora mismo no tiene un bloqueo activo.";
   } else {
-    stateSummary.textContent = "La web actual no coincide con ningun grupo configurado.";
+    stateSummary.textContent = "Esta web todavia no forma parte de ningun grupo configurado.";
   }
 
   windowSummary.textContent = blockState.activeRule
-    ? `Regla activa: ${formatOccurrence(blockState.activeRule)}`
-    : "No hay una regla activa para esta web.";
+    ? `Ventana activa: ${formatOccurrence(blockState.activeRule)}`
+    : "No hay una ventana activa para esta web en este momento.";
 
   nextWindowSummary.textContent = blockState.nextRule
     ? formatOccurrence(blockState.nextRule)
     : currentDomain
-      ? "No hay ninguna regla futura para este grupo."
-      : "Abre una web configurada para ver su proxima regla.";
+      ? "Este grupo no tiene otra ventana futura por ahora."
+      : "Abre una web que pertenezca a un grupo para ver la siguiente ventana.";
 
   siteSummary.textContent = currentDomain
-    ? `Web actual: ${currentDomain}. Grupo: ${groupDomainSummary}. Grupos configurados: ${data.ruleGroups.length}.`
+    ? `Web actual: ${currentDomain}. Grupo compartido: ${groupDomainSummary}. Grupos configurados: ${data.ruleGroups.length}.`
     : data.ruleGroups.length
-      ? `Grupos configurados: ${data.ruleGroups.map((entry) => entry.domains.join(", ")).join(" | ")}`
-      : "Anade grupos desde la configuracion.";
+      ? `Grupos disponibles: ${data.ruleGroups.map((entry) => entry.domains.join(", ")).join(" | ")}`
+      : "Crea tu primer grupo desde la configuracion para empezar a bloquear con criterio.";
 }
 
 async function refreshState() {

@@ -9,21 +9,29 @@
   </head>
   <body>
     <main class="options-layout">
-      <section class="shell intro">
-        <div class="stack">
-          <span class="badge warning">Productividad protegida</span>
-          <h1>Configura grupos de webs</h1>
-          <p class="section-copy">
-            Cada grupo puede incluir varias webs y compartir reglas por fecha y hora o por horario semanal.
-          </p>
+      <section class="shell intro surface-accent">
+        <div class="intro-grid">
+          <div class="stack intro-copy">
+            <span class="eyebrow">NopeTab</span>
+            <h1>Disena reglas compartidas para que menos sitios pidan tu energia.</h1>
+            <p class="lead">Agrupa dominios, define ventanas puntuales o semanales y deja que la extension sostenga el limite por ti.</p>
+          </div>
+          <div class="card intro-aside stack">
+            <span class="badge warning">Productividad protegida</span>
+            <p class="status-text">Cada grupo comparte reglas entre webs y subdominios. La idea es editar una vez y mantener un criterio claro.</p>
+          </div>
         </div>
       </section>
 
-      <section class="shell options-grid">
-        <article class="card stack">
-          <h2 class="section-title">Mensaje de bloqueo</h2>
+      <section class="options-grid">
+        <article class="card stack settings-card">
+          <div class="stack compact">
+            <span class="eyebrow">Voz del bloqueo</span>
+            <h2 class="section-title">Mensaje y salida de emergencia</h2>
+            <p class="field-hint">Estas frases aparecen cuando una regla esta activa. Conviene que sean breves, firmes y faciles de entender.</p>
+          </div>
           <label>
-            Mensaje personalizado
+            Mensaje principal
             <textarea id="blockMessageInput" rows="5"></textarea>
           </label>
           <label>
@@ -33,26 +41,32 @@
         </article>
 
         <article class="card stack groups-card">
-          <div class="inline-row">
-            <h2 class="section-title">Grupos y reglas compartidas</h2>
-            <button id="addGroupButton" type="button" class="secondary">Agregar grupo</button>
+          <div class="groups-header">
+            <div class="stack compact">
+              <span class="eyebrow">Centro de reglas</span>
+              <h2 class="section-title">Grupos, dominios y ventanas compartidas</h2>
+            </div>
+            <button id="addGroupButton" type="button">Crear grupo</button>
           </div>
-          <p class="field-hint">Cada web puede pertenecer a un solo grupo y sus subdominios tambien quedaran cubiertos.</p>
+          <p class="field-hint">Una web solo puede vivir en un grupo. Sus subdominios tambien quedan cubiertos para evitar huecos en el bloqueo.</p>
           <label class="search-field">
-            Buscar web
-            <input id="groupSearchInput" type="search" placeholder="Filtra por ejemplo youtube.com o reddit.com" />
+            Buscar una web o una regla
+            <input id="groupSearchInput" type="search" placeholder="Filtra por ejemplo youtube.com, reddit.com o lun 09:00" />
           </label>
           <div id="groupList" class="stack"></div>
-          <div class="empty-state" id="groupEmptyState">Todavia no hay grupos configurados.</div>
+          <div class="empty-state" id="groupEmptyState">Aun no hay grupos configurados. Crea el primero para empezar a ordenar tus bloques.</div>
         </article>
       </section>
 
       <section class="shell footer-bar">
-        <div class="inline-row">
-          <button id="saveButton" type="button">Guardar cambios</button>
-          <button id="reloadButton" type="button" class="secondary">Recargar estado</button>
+        <div class="footer-copy stack compact">
+          <span class="eyebrow">Publicar cambios</span>
+          <p class="status-text" id="saveStatus">Todavia no hay cambios guardados.</p>
         </div>
-        <p class="status-text" id="saveStatus">Sin cambios guardados todavia.</p>
+        <div class="inline-row footer-actions">
+          <button id="saveButton" type="button">Guardar cambios</button>
+          <button id="reloadButton" type="button" class="secondary">Volver a cargar</button>
+        </div>
       </section>
     </main>
 
@@ -61,10 +75,7 @@
         <div class="group-summary">
           <div class="group-summary-main">
             <button data-action="drag-group" type="button" class="ghost drag-handle" title="Arrastra para reordenar" draggable="true">Mover</button>
-            <button data-action="toggle-group" type="button" class="secondary group-toggle" aria-expanded="false">
-              Ver reglas
-            </button>
-            <div class="stack compact">
+            <div class="stack compact group-summary-copy">
               <span class="field-label">Webs del grupo</span>
               <p data-role="group-domain-summary" class="group-domain-summary">Sin webs todavia.</p>
             </div>
@@ -73,34 +84,46 @@
             <span data-role="group-status" class="badge">Sin reglas</span>
             <span data-role="domain-count" class="badge">0 webs</span>
             <span data-role="rule-count" class="badge">0 reglas</span>
-            <button data-action="toggle-enabled" type="button" class="secondary">Desactivar bloque</button>
-            <button data-action="remove-group" type="button" class="ghost">Eliminar grupo</button>
+            <button data-action="toggle-group" type="button" class="secondary group-toggle" aria-expanded="false">Ver interior</button>
+            <button data-action="toggle-enabled" type="button" class="ghost">Pausar bloque</button>
+            <button data-action="remove-group" type="button" class="ghost">Eliminar</button>
           </div>
         </div>
 
         <div class="group-overview">
           <p data-role="group-summary-text" class="site-summary-text">Sin configuracion todavia.</p>
-          <p data-role="group-next-text" class="site-next-text">Agrega webs y reglas para ver la proxima ventana.</p>
+          <p data-role="group-next-text" class="site-next-text">Agrega webs y reglas para que podamos calcular la siguiente ventana.</p>
         </div>
         <div data-role="group-errors" class="validation-list" hidden></div>
 
         <div data-role="group-panel" class="site-panel stack" hidden>
-          <div class="stack domain-editor">
-            <div class="inline-row compact-actions">
-              <span class="field-label">Webs</span>
+          <div class="panel-block stack domain-editor">
+            <div class="inline-row compact-actions panel-block-header">
+              <div class="stack compact">
+                <span class="field-label">Dominios compartidos</span>
+                <p class="note">Todo lo que pongas aqui usara exactamente las mismas reglas.</p>
+              </div>
               <button data-action="add-domain" type="button" class="secondary">Agregar web</button>
             </div>
             <div data-role="domain-list" class="stack domain-list"></div>
-            <div data-role="domain-empty" class="empty-state">Este grupo aun no tiene webs.</div>
+            <div data-role="domain-empty" class="empty-state">Este grupo aun no tiene webs. Agrega al menos una para que cobre sentido.</div>
           </div>
 
-          <div class="inline-row compact-actions">
-            <button data-action="add-datetime-rule" type="button" class="secondary">Agregar por fecha</button>
-            <button data-action="add-weekly-rule" type="button" class="secondary">Agregar horario semanal</button>
-          </div>
+          <div class="panel-block stack">
+            <div class="inline-row compact-actions panel-block-header">
+              <div class="stack compact">
+                <span class="field-label">Ventanas de bloqueo</span>
+                <p class="note">Puedes mezclar bloqueos puntuales y horarios semanales dentro del mismo grupo.</p>
+              </div>
+              <div class="inline-row compact-actions panel-actions-split">
+                <button data-action="add-datetime-rule" type="button" class="secondary">Agregar por fecha</button>
+                <button data-action="add-weekly-rule" type="button" class="secondary">Agregar semanal</button>
+              </div>
+            </div>
 
-          <div data-role="rule-list" class="stack rule-list"></div>
-          <div data-role="rule-empty" class="empty-state">Este grupo aun no tiene reglas.</div>
+            <div data-role="rule-list" class="stack rule-list"></div>
+            <div data-role="rule-empty" class="empty-state">Este grupo aun no tiene reglas. Agrega una ventana para activarlo.</div>
+          </div>
         </div>
       </article>
     </template>
@@ -111,7 +134,7 @@
           <span class="field-label">Web</span>
           <input data-field="domain" type="text" placeholder="youtube.com" />
         </label>
-        <button data-action="remove-domain" type="button" class="ghost">Eliminar</button>
+        <button data-action="remove-domain" type="button" class="ghost">Quitar</button>
       </div>
     </template>
 
@@ -120,7 +143,7 @@
         <div class="inline-row spread-row">
           <div class="inline-row rule-title-row">
             <button data-action="drag-rule" type="button" class="ghost drag-handle" title="Arrastra para reordenar" draggable="true">Mover</button>
-            <span class="badge">Por fecha y hora</span>
+            <span class="badge">Bloque puntual</span>
             <span data-role="rule-summary" class="rule-summary">Resumen pendiente</span>
           </div>
           <div class="inline-row compact-actions">
@@ -147,7 +170,7 @@
         <div class="inline-row spread-row">
           <div class="inline-row rule-title-row">
             <button data-action="drag-rule" type="button" class="ghost drag-handle" title="Arrastra para reordenar" draggable="true">Mover</button>
-            <span class="badge warning">Horario semanal</span>
+            <span class="badge warning">Ritmo semanal</span>
             <span data-role="rule-summary" class="rule-summary">Resumen pendiente</span>
           </div>
           <div class="inline-row compact-actions">
@@ -166,7 +189,7 @@
           </label>
         </div>
         <fieldset class="weekday-picker">
-          <legend>Dias</legend>
+          <legend>Dias activos</legend>
           <div class="weekday-grid">
             <label><input data-day="1" type="checkbox" />Lun</label>
             <label><input data-day="2" type="checkbox" />Mar</label>
