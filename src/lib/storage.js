@@ -234,6 +234,7 @@ function sanitizeRuleGroup(entry, now = new Date(), fallbackSortOrder = 0) {
     return null;
   }
 
+  const enabled = entry.enabled !== false;
   const domains = sanitizeDomainList(entry.domains);
   if (!domains.length) {
     return null;
@@ -262,6 +263,7 @@ function sanitizeRuleGroup(entry, now = new Date(), fallbackSortOrder = 0) {
       typeof entry.id === "string" && entry.id
         ? entry.id
         : `group-${domains.join("-")}-${rules.length}`,
+    enabled,
     domains,
     sortOrder: Number.isFinite(Number(entry.sortOrder)) ? Number(entry.sortOrder) : fallbackSortOrder,
     rules: withNormalizedRuleSortOrder(rules.sort(compareRules))
@@ -415,6 +417,10 @@ function getMatchingRuleGroup(hostname, ruleGroups) {
   const matches = [];
 
   for (const groupEntry of ruleGroups || []) {
+    if (groupEntry && groupEntry.enabled === false) {
+      continue;
+    }
+
     for (const domain of groupEntry.domains || []) {
       if (!matchesBlockedSite(hostname, domain)) {
         continue;
@@ -676,6 +682,17 @@ function getBlockState(data, hostname, now = new Date()) {
 }
 
 function getGroupPreview(groupEntry, emergencyUnlock, now = new Date(), previewDomain = null) {
+  if (groupEntry && groupEntry.enabled === false) {
+    return {
+      groupEntry,
+      activeDomain: normalizeDomain(previewDomain) || null,
+      activeRule: null,
+      nextRule: null,
+      blocked: false,
+      emergencyUnlocked: false
+    };
+  }
+
   const activeRule = getActiveRule(groupEntry, now);
   const domains = Array.isArray(groupEntry && groupEntry.domains) ? groupEntry.domains : [];
   const activeDomain = normalizeDomain(previewDomain) || domains[0] || null;

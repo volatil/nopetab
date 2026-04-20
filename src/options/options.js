@@ -227,6 +227,24 @@ function setGroupExpanded(groupCard, expanded) {
   groupPanel.hidden = !expanded;
 }
 
+function isGroupEnabled(groupCard) {
+  return groupCard.dataset.enabled !== "false";
+}
+
+function setGroupEnabled(groupCard, enabled) {
+  const enabledValue = Boolean(enabled);
+  const toggleEnabledButton = groupCard.querySelector('[data-action="toggle-enabled"]');
+  groupCard.dataset.enabled = enabledValue ? "true" : "false";
+  groupCard.classList.toggle("group-disabled", !enabledValue);
+
+  if (toggleEnabledButton) {
+    toggleEnabledButton.textContent = enabledValue ? "Desactivar bloque" : "Activar bloque";
+    toggleEnabledButton.title = enabledValue
+      ? "Desactiva este bloque sin perder sus webs y reglas."
+      : "Activa este bloque para volver a bloquear segun sus reglas.";
+  }
+}
+
 function readRuleElement(ruleElement) {
   if (ruleElement.dataset.ruleType === "weekly-hours") {
     return {
@@ -248,6 +266,7 @@ function readRuleElement(ruleElement) {
 
 function readGroupDraft(groupCard) {
   return {
+    enabled: isGroupEnabled(groupCard),
     domains: Array.from(groupCard.querySelectorAll(".domain-row [data-field='domain']")).map((input) => input.value),
     rules: Array.from(groupCard.querySelectorAll(".rule-card")).map(readRuleElement)
   };
@@ -371,6 +390,7 @@ function updateGroupOverview(groupCard, validRuleCount, validDomainCount) {
   const summaryText = groupCard.querySelector('[data-role="group-summary-text"]');
   const nextText = groupCard.querySelector('[data-role="group-next-text"]');
   const domainSummary = groupCard.querySelector('[data-role="group-domain-summary"]');
+  const enabled = isGroupEnabled(groupCard);
   const normalizedDomains = getNormalizedDomains(groupCard);
   const sanitizedGroups = sanitizeRuleGroups([readGroupDraft(groupCard)]);
   const groupEntry = sanitizedGroups[0] || null;
@@ -379,6 +399,14 @@ function updateGroupOverview(groupCard, validRuleCount, validDomainCount) {
   domainSummary.textContent = normalizedDomains.length
     ? normalizedDomains.join(", ")
     : "Sin webs todavia.";
+
+  if (!enabled) {
+    statusBadge.textContent = "Desactivado";
+    statusBadge.className = "badge warning";
+    summaryText.textContent = "Bloque desactivado: no aplica bloqueo.";
+    nextText.textContent = "Activalo cuando quieras para volver a usar sus reglas.";
+    return;
+  }
 
   if (!validDomainCount) {
     statusBadge.textContent = "Webs invalidas";
@@ -606,11 +634,12 @@ function duplicateRule(groupCard, ruleElement) {
   markDirty("Regla duplicada. Revisa el nuevo bloque y guarda cuando quieras.");
 }
 
-function createGroupCard(groupEntry = { domains: [], rules: [] }, options = {}) {
+function createGroupCard(groupEntry = { enabled: true, domains: [], rules: [] }, options = {}) {
   const fragment = groupCardTemplate.content.cloneNode(true);
   const groupCard = fragment.querySelector(".group-card");
   const expanded = options.expanded ?? !(groupEntry.rules || []).length;
   const groupId = groupEntry.id || "";
+  const enabled = groupEntry.enabled !== false;
 
   groupCard.dataset.groupId = groupId;
   groupList.appendChild(groupCard);
@@ -629,6 +658,7 @@ function createGroupCard(groupEntry = { domains: [], rules: [] }, options = {}) 
 
   updateDomainEmptyState(groupCard);
   updateRuleEmptyState(groupCard);
+  setGroupEnabled(groupCard, enabled);
   setGroupExpanded(groupCard, expanded);
   updateAllGroupCards();
   return groupCard;
@@ -637,6 +667,7 @@ function createGroupCard(groupEntry = { domains: [], rules: [] }, options = {}) 
 function readRuleGroups() {
   const groupEntries = Array.from(groupList.querySelectorAll(".group-card")).map((groupCard, groupIndex) => ({
     id: groupCard.dataset.groupId || undefined,
+    enabled: isGroupEnabled(groupCard),
     sortOrder: groupIndex,
     domains: Array.from(groupCard.querySelectorAll(".domain-row [data-field='domain']")).map((input) => input.value),
     rules: Array.from(groupCard.querySelectorAll(".rule-card")).map((ruleElement, ruleIndex) => ({
@@ -697,6 +728,13 @@ function handleGroupListClick(event) {
   if (action === "remove-group" && groupCard) {
     groupCard.remove();
     markDirty("Grupo eliminado. Guarda para confirmar el cambio.");
+    return;
+  }
+
+  if (action === "toggle-enabled" && groupCard) {
+    const nextEnabled = !isGroupEnabled(groupCard);
+    setGroupEnabled(groupCard, nextEnabled);
+    markDirty(nextEnabled ? "Bloque activado." : "Bloque desactivado.");
     return;
   }
 

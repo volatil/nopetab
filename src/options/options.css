@@ -41,6 +41,16 @@ body {
   padding: 14px 16px;
 }
 
+.group-card.group-disabled {
+  border-color: rgba(31, 37, 32, 0.18);
+  background: rgba(31, 37, 32, 0.02);
+}
+
+.group-card.group-disabled .group-domain-summary,
+.group-card.group-disabled .site-summary-text {
+  color: var(--muted);
+}
+
 .group-card.is-dragging,
 .rule-card.is-dragging {
   opacity: 0.45;
