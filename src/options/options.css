@@ -39,6 +39,12 @@ body {
   gap: 18px;
 }
 
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .groups-header {
   display: flex;
   justify-content: space-between;
@@ -313,6 +319,7 @@ body {
   }
 
   .footer-actions > *,
+  .backup-actions > *,
   .panel-actions-split > *,
   .group-summary-actions > *,
   .groups-header > * {

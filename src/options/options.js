@@ -13,6 +13,9 @@ const addGroupButton = document.getElementById("addGroupButton");
 const saveButton = document.getElementById("saveButton");
 const reloadButton = document.getElementById("reloadButton");
 const saveStatus = document.getElementById("saveStatus");
+const exportConfigButton = document.getElementById("exportConfigButton");
+const importConfigButton = document.getElementById("importConfigButton");
+const importConfigInput = document.getElementById("importConfigInput");
 
 let currentData = null;
 let isDirty = false;
@@ -38,6 +41,23 @@ function sanitizeSettings(settings) {
   }
 
   return settings || {};
+}
+
+function sanitizeData(data) {
+  if (typeof storageApi.sanitizeData === "function") {
+    return storageApi.sanitizeData(data);
+  }
+
+  return {
+    ruleGroups: sanitizeRuleGroups((data && data.ruleGroups) || []),
+    emergencyUnlock: {
+      activeDomain: null,
+      activeRuleId: null,
+      occurrenceStart: null,
+      unlockedAt: null
+    },
+    settings: sanitizeSettings(data && data.settings)
+  };
 }
 
 function parseDateTimeValue(value) {
@@ -583,6 +603,80 @@ function updateAllGroupCards() {
   updateSaveAvailability();
 }
 
+function readSettingsDraft() {
+  return sanitizeSettings({
+    blockMessage: blockMessageInput.value,
+    emergencyLabel: emergencyLabelInput.value
+  });
+}
+
+function readExportDraft() {
+  updateSaveAvailability();
+  if (saveButton.disabled) {
+    return null;
+  }
+
+  return sanitizeData({
+    ruleGroups: readRuleGroups(),
+    settings: readSettingsDraft(),
+    emergencyUnlock: currentData
+      ? currentData.emergencyUnlock
+      : {
+          activeDomain: null,
+          activeRuleId: null,
+          occurrenceStart: null,
+          unlockedAt: null
+        }
+  });
+}
+
+function getExportFilename(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `nopetab-config-${year}-${month}-${day}-${hours}${minutes}.json`;
+}
+
+function downloadJson(filename, value) {
+  const blob = new Blob([`${JSON.stringify(value, null, 2)}\n`], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function getImportedData(parsedValue) {
+  if (parsedValue && typeof parsedValue === "object" && parsedValue.data && typeof parsedValue.data === "object") {
+    return parsedValue.data;
+  }
+
+  return parsedValue;
+}
+
+function validateImportedData(data) {
+  const sanitized = sanitizeData(data);
+  if (!sanitized.ruleGroups.length) {
+    throw new Error("El archivo no trae grupos de reglas validos.");
+  }
+
+  return sanitized;
+}
+
+function readImportFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(reader.result));
+    reader.addEventListener("error", () => reject(new Error("No pudimos leer el archivo seleccionado.")));
+    reader.readAsText(file);
+  });
+}
+
 function createDomainRow(groupCard, domain = "", options = {}) {
   const fragment = domainRowTemplate.content.cloneNode(true);
   const row = fragment.querySelector(".domain-row");
@@ -860,10 +954,7 @@ addGroupButton.addEventListener("click", () => {
 saveButton.addEventListener("click", async () => {
   syncVisibleOrderMetadata();
   const ruleGroups = readRuleGroups();
-  const settings = sanitizeSettings({
-    blockMessage: blockMessageInput.value,
-    emergencyLabel: emergencyLabelInput.value
-  });
+  const settings = readSettingsDraft();
 
   const response = await sendMessage("save-options", {
     ruleGroups,
@@ -874,6 +965,51 @@ saveButton.addEventListener("click", async () => {
   isDirty = false;
   renderOptions(response.data);
   updateStatus("Cambios guardados. NopeTab ya esta trabajando con esta nueva configuracion.");
+});
+
+exportConfigButton.addEventListener("click", () => {
+  const data = readExportDraft();
+  if (!data) {
+    updateStatus("Corrige los errores marcados antes de exportar.");
+    return;
+  }
+
+  downloadJson(getExportFilename(), {
+    app: "NopeTab",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data
+  });
+  updateStatus("Configuracion exportada en un archivo JSON.");
+});
+
+importConfigButton.addEventListener("click", () => {
+  importConfigInput.click();
+});
+
+importConfigInput.addEventListener("change", async () => {
+  const file = importConfigInput.files && importConfigInput.files[0];
+  importConfigInput.value = "";
+  if (!file) {
+    return;
+  }
+
+  try {
+    const fileText = await readImportFile(file);
+    const parsed = JSON.parse(fileText);
+    const importedData = validateImportedData(getImportedData(parsed));
+    const response = await sendMessage("save-options", {
+      ruleGroups: importedData.ruleGroups,
+      settings: importedData.settings
+    });
+
+    currentData = response.data;
+    isDirty = false;
+    renderOptions(response.data);
+    updateStatus("Configuracion importada y guardada.");
+  } catch (error) {
+    updateStatus(error && error.message ? error.message : "No pudimos importar esta configuracion.");
+  }
 });
 
 reloadButton.addEventListener("click", loadOptions);
